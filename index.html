@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Eli-Estadística ✨ Portal de Bioanálisis</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- Emojis médicos flotantes -->
+  <div class="med-bg" aria-hidden="true">
+    <div class="med-emoji med-emoji-1">🩺</div>
+    <div class="med-emoji med-emoji-2">💉</div>
+    <div class="med-emoji med-emoji-3">🧪</div>
+    <div class="med-emoji med-emoji-4">💊</div>
+    <div class="med-emoji med-emoji-5">🔬</div>
+    <div class="med-emoji med-emoji-6">🧬</div>
+    <div class="med-emoji med-emoji-7">🌡️</div>
+    <div class="med-emoji med-emoji-8">🏥</div>
+    <div class="med-emoji med-emoji-9">🩺</div>
+    <div class="med-emoji med-emoji-10">🧪</div>
+  </div>
+
+  <!-- Emojis médicos cayendo -->
+  <div class="falling-container" aria-hidden="true">
+    <div class="gota">🩺</div><div class="gota">💊</div><div class="gota">🧪</div>
+    <div class="gota">💉</div><div class="gota">🌡️</div><div class="gota">🧬</div>
+    <div class="gota">🔬</div><div class="gota">💊</div><div class="gota">🩺</div>
+    <div class="gota">🧪</div><div class="gota">💉</div><div class="gota">🌡️</div>
+  </div>
+
+  <!-- ===================== LOGIN ===================== -->
+  <div id="login-screen" class="login-wrapper">
+    <div class="login-card">
+      <div class="login-header">
+        <div class="login-icon-pulse">🧪</div>
+        <h2>Eli-Estadística</h2>
+        <p>Sistema de Bioanálisis &amp; Estadísticas</p>
+      </div>
+      <!-- Paso 1 -->
+      <div id="login-step-1" class="login-step-content active">
+        <p class="login-desc text-center mb-4">Bienvenida, Lic. Eliana Morales. Pulse el botón para inicializar el sistema.</p>
+        <button id="btn-iniciar" class="btn btn-login w-100">
+          <i class="bi bi-shield-lock-fill me-2"></i>Iniciar Sesión
+        </button>
+      </div>
+      <!-- Paso 2 -->
+      <div id="login-step-2" class="login-step-content">
+        <div class="text-center mb-4">
+          <div class="spinner-border text-teal mb-3" role="status"><span class="visually-hidden">Cargando...</span></div>
+          <p class="text-teal-status fw-bold"><i class="bi bi-check-circle-fill me-2"></i>¡Conexión Establecida!</p>
+          <p class="login-desc">Todo listo para registrar exámenes.</p>
+        </div>
+        <button id="btn-continuar" class="btn btn-continue w-100">
+          Continuar al Sistema <i class="bi bi-arrow-right ms-2"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== APP PRINCIPAL ===================== -->
+  <div id="main-app" class="app-wrapper d-none">
+
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg sticky-top navbar-custom shadow-sm">
+      <div class="container-fluid px-3 px-md-4">
+        <span class="navbar-brand">
+          <span class="brand-icon">🔬</span>
+          <span class="brand-text">Eli-Estadística</span>
+        </span>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse justify-content-end" id="navbarNav">
+          <ul class="navbar-nav nav-pills" id="main-nav-tabs">
+            <li class="nav-item">
+              <a class="nav-link active" href="#" data-section="section-inicio">
+                <i class="bi bi-house-heart me-1"></i>Inicio
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="#" data-section="section-mantenimiento">
+                <i class="bi bi-gear-fill me-1"></i>Mantenimiento
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="#" data-section="section-pacientes">
+                <i class="bi bi-people-fill me-1"></i>Registro de Pacientes
+              </a>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </nav>
+
+    <main class="container py-4 px-3 px-md-5">
+
+      <!-- ========== INICIO ========== -->
+      <section id="section-inicio" class="app-section">
+        <div class="hero-card mb-5 text-center">
+          <div class="hero-icon mb-3">🩺</div>
+          <h1 class="hero-title">
+            "Dicen que los buenos resultados dependen de la muestra... pero esta aplicacion tuvo la suerte de tener a la mas hermosa y mejor licenciada en bioanalisis Eliana Morales."
+          </h1>
+          <div class="hero-divider">— 🔬 —</div>
+        </div>
+        <div class="row g-4 mb-4">
+          <div class="col-md-4">
+            <div class="stat-card">
+              <div class="stat-icon bg-soft-teal"><i class="bi bi-people-fill text-teal"></i></div>
+              <div class="stat-info"><h3 id="stat-pacientes">0</h3><p>Pacientes Registrados</p></div>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="stat-card">
+              <div class="stat-icon bg-soft-pink"><i class="bi bi-calendar2-check-fill text-pink"></i></div>
+              <div class="stat-info"><h3 id="stat-servicios">0</h3><p>Servicios de Atención</p></div>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="stat-card">
+              <div class="stat-icon bg-soft-blue"><i class="bi bi-file-medical-fill text-blue"></i></div>
+              <div class="stat-info"><h3 id="stat-examenes">0</h3><p>Exámenes Disponibles</p></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Exámenes del Día de Hoy ── -->
+        <div class="d-flex align-items-center gap-3 mb-3 mt-2">
+          <span class="hoy-label-badge">📅 Hoy</span>
+          <h5 class="mb-0 text-teal-dark fw-bold">Exámenes del día</h5>
+          <div class="flex-grow-1" style="border-bottom:2px solid #e2e8f0;"></div>
+        </div>
+        <div id="stats-hoy-examenes" class="row g-3 mb-2"></div>
+
+      </section>
+
+      <!-- ========== MANTENIMIENTO ========== -->
+      <section id="section-mantenimiento" class="app-section d-none">
+        <div class="row g-4">
+
+          <!-- CRUD Servicios -->
+          <div class="col-lg-6">
+            <div class="card form-card shadow-sm h-100">
+              <div class="card-header bg-white py-3">
+                <h4 class="mb-0 text-teal"><i class="bi bi-calendar-event me-2"></i>Servicios de Atención</h4>
+              </div>
+              <div class="card-body">
+                <form id="form-servicio" class="mb-3" novalidate>
+                  <input type="hidden" id="servicio-id">
+                  <div class="row g-3">
+                    <div class="col-md-7">
+                      <label for="servicio-nombre" class="form-label fw-semibold text-teal-dark">Nombre del Servicio</label>
+                      <input type="text" class="form-control input-custom" id="servicio-nombre" placeholder="Ej. Emergencia, Consulta" required>
+                    </div>
+                    <div class="col-md-5">
+                      <label for="servicio-fecha" class="form-label fw-semibold text-teal-dark">Fecha</label>
+                      <input type="date" class="form-control input-custom" id="servicio-fecha" required>
+                    </div>
+                  </div>
+                  <div class="mt-3 d-flex gap-2">
+                    <button type="submit" id="btn-guardar-servicio" class="btn btn-teal-action flex-grow-1 py-2">
+                      <i class="bi bi-plus-circle me-1"></i>Guardar
+                    </button>
+                    <button type="button" id="btn-cancelar-servicio" class="btn btn-secondary-action d-none px-3 py-2">Cancelar</button>
+                  </div>
+                </form>
+                <div class="table-responsive" style="max-height:260px;overflow-y:auto;">
+                  <table class="table table-hover align-middle">
+                    <thead class="table-light sticky-top">
+                      <tr><th>Nombre</th><th>Fecha</th><th class="text-end">Acciones</th></tr>
+                    </thead>
+                    <tbody id="tabla-servicios-cuerpo"></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- CRUD Exámenes -->
+          <div class="col-lg-6">
+            <div class="card form-card shadow-sm h-100">
+              <div class="card-header bg-white py-3">
+                <h4 class="mb-0 text-pink"><i class="bi bi-file-earmark-medical me-2"></i>Exámenes</h4>
+              </div>
+              <div class="card-body">
+                <form id="form-examen" class="mb-3" novalidate>
+                  <input type="hidden" id="examen-id">
+                  <div class="row g-3">
+                    <div class="col-8">
+                      <label for="examen-nombre" class="form-label fw-semibold text-pink-dark">Nombre del Examen</label>
+                      <input type="text" class="form-control input-custom" id="examen-nombre" placeholder="Ej. Orina, Heces, Glicemia" required>
+                    </div>
+                    <div class="col-4">
+                      <label for="examen-valor" class="form-label fw-semibold text-pink-dark">Valor</label>
+                      <input type="number" step="any" min="0" class="form-control input-custom" id="examen-valor" value="5" required>
+                    </div>
+                  </div>
+                  <div class="mt-3 d-flex gap-2">
+                    <button type="submit" id="btn-guardar-examen" class="btn btn-pink-action flex-grow-1 py-2">
+                      <i class="bi bi-plus-circle me-1"></i>Guardar
+                    </button>
+                    <button type="button" id="btn-cancelar-examen" class="btn btn-secondary-action d-none px-3 py-2">Cancelar</button>
+                  </div>
+                </form>
+                <div class="table-responsive" style="max-height:260px;overflow-y:auto;">
+                  <table class="table table-hover align-middle">
+                    <thead class="table-light sticky-top">
+                      <tr><th>Nombre del Examen</th><th class="text-end">Valor</th><th class="text-end">Acciones</th></tr>
+                    </thead>
+                    <tbody id="tabla-examenes-cuerpo"></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ========== REGISTRO DE PACIENTES ========== -->
+      <section id="section-pacientes" class="app-section d-none">
+        <div class="row g-4">
+
+          <!-- Formulario paciente -->
+          <div class="col-lg-4">
+            <div class="card form-card shadow-sm mb-4">
+              <div class="card-header bg-white py-3">
+                <h4 class="mb-0 text-teal" id="titulo-form-paciente">
+                  <i class="bi bi-person-fill-add me-2"></i>Registrar Paciente
+                </h4>
+              </div>
+              <div class="card-body">
+                <form id="form-paciente" novalidate>
+                  <input type="hidden" id="paciente-registro-id">
+
+                  <div class="mb-3">
+                    <label for="paciente-nombre" class="form-label fw-semibold text-teal-dark">Nombre del Paciente</label>
+                    <input type="text" class="form-control input-custom" id="paciente-nombre" placeholder="Nombre completo" required>
+                  </div>
+
+                  <div class="mb-3">
+                    <label for="paciente-fecha" class="form-label fw-semibold text-teal-dark">Fecha</label>
+                    <input type="date" class="form-control input-custom" id="paciente-fecha" required>
+                  </div>
+
+                  <div class="mb-3">
+                    <label for="paciente-servicio" class="form-label fw-semibold text-teal-dark">Servicio de Atención</label>
+                    <select class="form-select input-custom" id="paciente-servicio" required>
+                      <option value="" disabled selected>Seleccione un servicio...</option>
+                    </select>
+                  </div>
+
+                  <div class="mb-3">
+                    <label for="paciente-examen" class="form-label fw-semibold text-teal-dark">Examen</label>
+                    <select class="form-select input-custom" id="paciente-examen" required>
+                      <option value="" disabled selected>Seleccione un examen...</option>
+                    </select>
+                  </div>
+
+                  <!-- Cantidad + Total calculado -->
+                  <div class="row g-2 mb-3">
+                    <div class="col-6">
+                      <label for="paciente-cantidad" class="form-label fw-semibold text-teal-dark">Cantidad</label>
+                      <input type="number" min="1" class="form-control input-custom text-center fw-bold" id="paciente-cantidad" value="1" required>
+                    </div>
+                    <div class="col-6">
+                      <label class="form-label fw-semibold text-teal-dark">Total</label>
+                      <input type="text" class="form-control bg-light text-teal text-center fw-bold border-teal" id="paciente-total" value="0.00" readonly>
+                    </div>
+                  </div>
+
+                  <div class="d-flex gap-2">
+                    <button type="submit" id="btn-guardar-paciente" class="btn btn-teal-action flex-grow-1 py-2">
+                      <i class="bi bi-save me-1"></i>Guardar Registro
+                    </button>
+                    <button type="button" id="btn-cancelar-paciente" class="btn btn-secondary-action d-none px-3 py-2">Cancelar</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+
+          <!-- Historial + Resumen -->
+          <div class="col-lg-8">
+
+            <!-- Historial de Registros -->
+            <div class="card form-card shadow-sm mb-4">
+              <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <h4 class="mb-0 text-pink"><i class="bi bi-journal-medical me-2"></i>Historial de Registros</h4>
+                <div class="d-flex gap-2 align-items-center flex-wrap">
+                  <span class="badge badge-custom bg-pink" id="badge-total-registros">0 Registros</span>
+                  <button id="btn-abrir-export" class="btn btn-sm btn-teal-action py-1 px-2">
+                    <i class="bi bi-download me-1"></i>Exportar / Correo
+                  </button>
+                </div>
+              </div>
+              <div class="card-body">
+                <!-- Filtros -->
+                <div class="row g-2 mb-3 p-2 bg-light rounded border">
+                  <div class="col-12 col-md-5">
+                    <div class="input-group">
+                      <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
+                      <input type="text" class="form-control border-start-0 input-custom" id="filtro-busqueda" placeholder="Buscar paciente...">
+                    </div>
+                  </div>
+                  <div class="col-6 col-md-3">
+                    <select class="form-select input-custom" id="filtro-servicio">
+                      <option value="">Todos los Servicios</option>
+                    </select>
+                  </div>
+                  <div class="col-6 col-md-4">
+                    <select class="form-select input-custom" id="filtro-examen">
+                      <option value="">Todos los Exámenes</option>
+                    </select>
+                  </div>
+                </div>
+
+                <!-- Tabla historial -->
+                <div class="table-responsive" style="max-height:380px;overflow-y:auto;">
+                  <table class="table table-hover align-middle">
+                    <thead class="table-light sticky-top">
+                      <tr>
+                        <th>Fecha</th>
+                        <th>Paciente</th>
+                        <th>Servicio</th>
+                        <th>Examen</th>
+                        <th class="text-center">Cant.</th>
+                        <th class="text-end">Total</th>
+                        <th class="text-end">Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody id="tabla-pacientes-cuerpo"></tbody>
+                  </table>
+                  <div id="sin-resultados" class="text-center py-5 d-none">
+                    <i class="bi bi-inbox text-muted fs-1 d-block mb-2"></i>
+                    <p class="text-muted">No se encontraron registros.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Resumen Acumulado del Día -->
+            <div class="card form-card shadow-sm border-teal">
+              <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <h4 class="mb-0 text-teal-dark"><i class="bi bi-bar-chart-fill me-2"></i>Resumen Acumulado del Día</h4>
+                <div class="d-flex align-items-center gap-2">
+                  <label for="fecha-resumen" class="form-label mb-0 fw-semibold text-muted small">Fecha:</label>
+                  <input type="date" class="form-control form-control-sm input-custom py-1" id="fecha-resumen" style="width:140px;">
+                </div>
+              </div>
+              <div class="card-body">
+                <div class="table-responsive">
+                  <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                      <tr>
+                        <th>Examen</th>
+                        <th class="text-center">Total Exámenes Realizados</th>
+                        <th class="text-end">Valor Acumulado</th>
+                      </tr>
+                    </thead>
+                    <tbody id="tabla-resumen-cuerpo"></tbody>
+                    <tfoot class="table-group-divider fw-bold">
+                      <tr>
+                        <td>TOTAL DEL DÍA</td>
+                        <td class="text-center text-teal-dark" id="resumen-total-cant">0</td>
+                        <td class="text-end text-teal" id="resumen-total-val">0.00</td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer mt-auto py-3">
+      <div class="container text-center">
+        <p class="mb-1 fw-medium text-muted small">Desarrollado para la Lic. Eliana Morales 🧪</p>
+        <div class="footer-emojis">🩺 💉 🧪 🔬 🧬 🌡️ 🏥</div>
+      </div>
+    </footer>
+
+  </div><!-- /main-app -->
+
+  <!-- ===== PANEL EXPORTAR (sin Bootstrap Modal para evitar bugs de backdrop) ===== -->
+  <div id="export-overlay" class="export-overlay d-none" role="dialog" aria-modal="true" aria-label="Exportar Reporte">
+    <div class="export-panel">
+      <div class="export-panel-header">
+        <h5 class="mb-0 fw-bold text-teal-dark">
+          <i class="bi bi-file-earmark-arrow-up-fill me-2"></i>Exportar Reporte
+        </h5>
+        <button id="btn-cerrar-export" class="btn-icon-close" aria-label="Cerrar">
+          <i class="bi bi-x-lg"></i>
+        </button>
+      </div>
+      <div class="export-panel-body">
+        <p class="text-muted mb-4 small">Descarga los datos y/o redacta un correo con el resumen del día.</p>
+
+        <!-- Paso 1 -->
+        <div class="export-step">
+          <div class="export-step-num bg-soft-teal">1</div>
+          <div class="flex-grow-1">
+            <h6 class="fw-bold mb-1">Descargar Excel</h6>
+            <p class="text-muted small mb-2">Descarga como archivo CSV compatible con Microsoft Excel.</p>
+            <div class="d-flex gap-2 flex-wrap">
+              <button id="btn-csv-historial" class="btn btn-teal-action btn-sm py-2 px-3">
+                <i class="bi bi-file-earmark-spreadsheet me-1"></i>Historial Completo
+              </button>
+              <button id="btn-csv-resumen" class="btn btn-pink-action btn-sm py-2 px-3">
+                <i class="bi bi-calendar-check me-1"></i>Resumen del Día
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <hr class="my-3">
+
+        <!-- Paso 2 -->
+        <div class="export-step">
+          <div class="export-step-num bg-soft-pink">2</div>
+          <div class="flex-grow-1">
+            <h6 class="fw-bold mb-1">Enviar por Correo</h6>
+            <p class="text-muted small mb-2">Abre tu cliente de correo con el resumen pre-redactado. Adjunta el archivo descargado.</p>
+            <button id="btn-correo" class="btn btn-login w-100 py-2">
+              <i class="bi bi-envelope-at-fill me-1"></i>Redactar y Enviar Correo
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

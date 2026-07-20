@@ -1,0 +1,51 @@
+# ──────────────────────────────────────────
+# Eli-Estadística – .gitignore
+# Proyecto HTML/CSS/JS estático (sin build)
+# ──────────────────────────────────────────
+
+# Sistema Operativo – Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Sistema Operativo – macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Editores – VS Code
+.vscode/
+*.code-workspace
+
+# Editores – JetBrains (WebStorm, etc.)
+.idea/
+
+# Editores – Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Logs y temporales
+*.log
+*.tmp
+*.bak
+*.swp
+*~
+
+# Archivos exportados generados (no van al repo)
+*.csv
+*.xlsx
+
+# Node (por si algún día se agrega un servidor local npm)
+node_modules/
+npm-debug.log*
+package-lock.json
+
+# Entornos Python (servidor local con python -m http.server)
+__pycache__/
+*.py[cod]
+
+# Variables de entorno / secretos
+.env
+.env.local
+.env.*
