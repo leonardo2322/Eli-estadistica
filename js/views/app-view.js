@@ -107,11 +107,51 @@ class AppView {
     this._initNav();
     this._setFechaHoy();
     this._initTableDelegation();
+    this._initFrasesRotativas();
   }
 
   // ════════════════════════════════════════════════════════════
   // INICIALIZACIÓN INTERNA
   // ════════════════════════════════════════════════════════════
+
+  /** Rotación suave de frases cariñosas en el hero banner + soporte para doble clic. */
+  _initFrasesRotativas() {
+    const $heroText = document.getElementById('hero-title-text');
+    if (!$heroText) return;
+
+    $heroText.style.cursor = 'pointer';
+    $heroText.title = 'Haz doble clic para ver otro mensaje ❤️';
+
+    let idx = 0;
+    let animando = false;
+
+    const cambiarFrase = () => {
+      if (animando) return;
+      animando = true;
+      $heroText.style.opacity = '0';
+      $heroText.style.transform = 'translateY(-6px)';
+
+      setTimeout(() => {
+        idx = (idx + 1) % FRASES_ELIANA.length;
+        $heroText.textContent = FRASES_ELIANA[idx];
+        $heroText.style.opacity = '1';
+        $heroText.style.transform = 'translateY(0)';
+        setTimeout(() => { animando = false; }, 800);
+      }, 800);
+    };
+
+    // Cambiar automáticamente cada 7 segundos
+    let intervalId = setInterval(cambiarFrase, 7000);
+
+    // Cambiar inmediatamente al hacer doble clic
+    const heroContainer = $heroText.closest('.hero-card') || $heroText;
+    heroContainer.addEventListener('dblclick', (e) => {
+      e.preventDefault();
+      clearInterval(intervalId);
+      cambiarFrase();
+      intervalId = setInterval(cambiarFrase, 7000);
+    });
+  }
 
   /** Inicializa la navegación del navbar. */
   _initNav() {
