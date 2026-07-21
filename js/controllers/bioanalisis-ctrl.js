@@ -45,14 +45,26 @@ class BioanalisisController {
   }
 
   /**
-   * Registra callbacks opcionales para notificar eventos de pacientes.
-   * Usado por el orquestador (app.js) para conectar con FormatosController.
-   * @param {Function} onGuardado   – (examenNombre, servicioNombre, fecha, cantidad)
-   * @param {Function} onEliminado  – (examenNombre, servicioNombre, fecha, cantidad)
+   * Registra el callback para notificar la sincronización de formatos basada en el Resumen del Día.
+   * @param {Function} onSincronizar – (fecha)
+   */
+  setOnSincronizarFormatos(onSincronizar) {
+    this._cbSincronizarFormatos = onSincronizar;
+  }
+
+  /**
+   * Mantiene compatibilidad con la firma anterior de callbacks.
    */
   setCallbacksPaciente(onGuardado, onEliminado) {
-    this._cbPacGuardado  = onGuardado;
-    this._cbPacEliminado = onEliminado;
+    if (typeof onGuardado === 'function' && onGuardado.length <= 1) {
+      this._cbSincronizarFormatos = onGuardado;
+    }
+  }
+
+  _notificarSincronizacion(fecha) {
+    if (typeof this._cbSincronizarFormatos === 'function' && fecha) {
+      this._cbSincronizarFormatos(fecha);
+    }
   }
 
   // ─────────────────────────────────────────────────────────────
@@ -118,11 +130,10 @@ class BioanalisisController {
   }
 
   // ─────────────────────────────────────────────────────────────
-  // PACIENTES
+  // REGISTROS DE ATENCIÓN (PACIENTES)
   // ─────────────────────────────────────────────────────────────
 
   _guardarPaciente(d) {
-    // Si es edición, guardar el registro ANTERIOR para deshacer su auto-llenado
     let anterior = null;
     if (d.id) {
       anterior = this.repo.obtenerPacientes().find(p => p.id === d.id) || null;
@@ -131,50 +142,24 @@ class BioanalisisController {
     this.repo.guardarPaciente(d);
     this.view.clearPacForm();
     this._refrescar();
-    DomHelpers.mostrarToast('Registro de paciente guardado.', 'success');
+    DomHelpers.mostrarToast('Registro de atención guardado.', 'success');
 
-    // Notificar al formatosCtrl para auto-llenar la grilla
-    if (this._cbPacGuardado || this._cbPacEliminado) {
-      const examenes  = this.repo.obtenerExamenes();
-      const servicios = this.repo.obtenerServicios();
-
-      // Si fue edición: deshacer el auto-llenado anterior
-      if (anterior && this._cbPacEliminado) {
-        const exAnterior  = examenes.find(e => e.id === anterior.examenId);
-        const srvAnterior = servicios.find(s => s.id === anterior.servicioId);
-        if (exAnterior && srvAnterior) {
-          this._cbPacEliminado(exAnterior.nombre, srvAnterior.nombre, anterior.fecha, anterior.cantidad);
-        }
-      }
-
-      // Auto-llenar con el registro nuevo/editado
-      if (this._cbPacGuardado) {
-        const exNuevo  = examenes.find(e => e.id === d.examenId);
-        const srvNuevo = servicios.find(s => s.id === d.servicioId);
-        if (exNuevo && srvNuevo) {
-          this._cbPacGuardado(exNuevo.nombre, srvNuevo.nombre, d.fecha, d.cantidad);
-        }
-      }
+    // Sincronizar Formatos para la fecha del registro (y fecha anterior si se editó la fecha)
+    if (anterior && anterior.fecha && anterior.fecha !== d.fecha) {
+      this._notificarSincronizacion(anterior.fecha);
     }
+    this._notificarSincronizacion(d.fecha);
   }
 
   _eliminarPaciente(id) {
-    // Guardar los datos ANTES de eliminar para el callback
-    const paciente  = this.repo.obtenerPacientes().find(p => p.id === id) || null;
-    const examenes  = this.repo.obtenerExamenes();
-    const servicios = this.repo.obtenerServicios();
+    const paciente = this.repo.obtenerPacientes().find(p => p.id === id) || null;
 
     this.repo.eliminarPaciente(id);
     this._refrescar();
-    DomHelpers.mostrarToast('Registro eliminado.', 'info');
+    DomHelpers.mostrarToast('Registro de atención eliminado.', 'info');
 
-    // Deshacer el auto-llenado correspondiente
-    if (paciente && this._cbPacEliminado) {
-      const ex  = examenes.find(e => e.id === paciente.examenId);
-      const srv = servicios.find(s => s.id === paciente.servicioId);
-      if (ex && srv) {
-        this._cbPacEliminado(ex.nombre, srv.nombre, paciente.fecha, paciente.cantidad);
-      }
+    if (paciente && paciente.fecha) {
+      this._notificarSincronizacion(paciente.fecha);
     }
   }
 
@@ -203,8 +188,7 @@ class BioanalisisController {
 
   /**
    * Finaliza el turno actual para la fecha seleccionada en el resumen:
-   * Procesa todos los registros de la fecha y sincroniza masivamente
-   * sus cantidades con los Formatos Estadísticos Mensuales.
+   * Sincroniza el Resumen Acumulado del Día con los Formatos Estadísticos Mensuales.
    */
   _finalizarTurno() {
     const fecha = this.fechaRes || DateUtils.getHoy();
@@ -215,26 +199,18 @@ class BioanalisisController {
       return;
     }
 
-    if (!this._cbPacGuardado) {
+    if (!this._cbSincronizarFormatos) {
       DomHelpers.mostrarToast('El módulo de formatos no está conectado.', 'error');
       return;
     }
 
-    const examenes  = this.repo.obtenerExamenes();
-    const servicios = this.repo.obtenerServicios();
-    let contador = 0;
+    // Ejecutar la sincronización idempotente basada en los datos del Resumen del Día
+    this._notificarSincronizacion(fecha);
 
-    pacientes.forEach(p => {
-      const ex  = examenes.find(e => e.id === p.examenId);
-      const srv = servicios.find(s => s.id === p.servicioId);
-      if (ex && srv) {
-        this._cbPacGuardado(ex.nombre, srv.nombre, p.fecha, p.cantidad);
-        contador += p.cantidad;
-      }
-    });
+    const totalExamenes = pacientes.reduce((sum, p) => sum + (parseInt(p.cantidad) || 1), 0);
 
     DomHelpers.mostrarToast(
-      `⏰ ¡Turno Finalizado! Se han cargado ${contador} examen(es) a los Formatos Estadísticos del día ${fecha}.`,
+      `⏰ ¡Turno Finalizado! Se han cargado ${totalExamenes} examen(es) a los Formatos Estadísticos del día ${fecha}.`,
       'success'
     );
   }

@@ -452,7 +452,7 @@ const NOMBRES_MESES = [
 ];
 
 // ═══════════════════════════════════════════════════════════════════
-// FUNCIONES DE MAPEO PARA AUTO-LLENADO DESDE REGISTRO DE PACIENTES
+// FUNCIONES DE MAPEO PARA AUTO-LLENADO DESDE REGISTRO DE ATENCIÓN
 // ═══════════════════════════════════════════════════════════════════
 
 /**
@@ -499,37 +499,257 @@ function getFilaParaServicio(nombreServicio, areaId) {
   const hoja = area.hojas[0];
   if (!hoja || !hoja.grupos.length) return null;
 
-  // El primer grupo siempre contiene las filas de servicios
   const primerGrupo = hoja.grupos[0];
   const filas = primerGrupo.filas.filter(f => !f.esTotal);
 
-  const n = (nombreServicio || '').toLowerCase()
-    .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const key = inferirServicioKey(nombreServicio);
 
-  // Prioridad: más específico primero
-  if (/pediatr/i.test(n)) {
-    return filas.find(f => /pediatr/i.test(f.label))?.id ?? null;
+  if (key === 'emerg_pediatrica') {
+    return filas.find(f => /pediatr/i.test(f.label))?.id ?? filas[0]?.id ?? null;
   }
-  if (/prenatal/i.test(n)) {
-    return filas.find(f => /prenatal/i.test(f.label))?.id ?? null;
+  if (key === 'prenatal') {
+    return filas.find(f => /prenatal/i.test(f.label))?.id ?? filas.find(f => /externa/i.test(f.label))?.id ?? filas[0]?.id ?? null;
   }
-  if (/consulta\s*especial|cons.*esp/i.test(n)) {
-    return filas.find(f => /consulta\s*especial/i.test(f.label))?.id ?? null;
+  if (key === 'cons_especial') {
+    return filas.find(f => /especial/i.test(f.label))?.id ?? filas[0]?.id ?? null;
   }
-  if (/consulta\s*externa|cons.*ext/i.test(n)) {
-    return filas.find(f => /consulta\s*externa/i.test(f.label))?.id ?? null;
+  if (key === 'cons_externa') {
+    return filas.find(f => /externa/i.test(f.label))?.id ?? filas[0]?.id ?? null;
   }
-  if (/hospitaliz/i.test(n)) {
-    return filas.find(f => /hospitaliz/i.test(f.label))?.id ?? null;
+  if (key === 'hospitalizacion') {
+    return filas.find(f => /hospitaliz/i.test(f.label))?.id ?? filas[0]?.id ?? null;
   }
-  if (/emergencia/i.test(n)) {
-    // Emergencia adulto como fallback si no hay pediatrica
+  if (key === 'emerg_adulto') {
     return filas.find(f => /emergencia\s*adulto/i.test(f.label))?.id
         ?? filas.find(f => /emergencia/i.test(f.label))?.id
-        ?? null;
+        ?? filas[0]?.id ?? null;
   }
 
-  // Fallback: primera fila no-total del primer grupo
+  // Fallback para servicios específicos (ej. Pediatría, Medicina Interna, etc.)
+  const n = (nombreServicio || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const coincidencia = filas.find(f => f.label.toLowerCase().includes(n));
+  if (coincidencia) return coincidencia.id;
+
   return filas[0]?.id ?? null;
 }
+
+// ═══════════════════════════════════════════════════════════════════
+// MAPEO DE CLAVES (KEYS) DE EXÁMENES PARA FORMATOS ESTADÍSTICOS
+// ═══════════════════════════════════════════════════════════════════
+
+const EXAMEN_KEY_MAP = {
+  // Hematología Sub-Exámenes
+  'sub_51_hemoglobina':   { areaId: 'hematologia', hojaId: 'hematologia_h1', filaId: 'sub_51_hemoglobina', label: '5.1 Hemoglobina' },
+  'sub_52_hematocrito':   { areaId: 'hematologia', hojaId: 'hematologia_h1', filaId: 'sub_52_hematocrito', label: '5.2 Hematocrito' },
+  'sub_53_plaquetas':     { areaId: 'hematologia', hojaId: 'hematologia_h1', filaId: 'sub_53_plaquetas', label: '5.3 Plaquetas' },
+  'sub_54_diferencial':   { areaId: 'hematologia', hojaId: 'hematologia_h1', filaId: 'sub_54_diferencial', label: '5.4 Diferencial' },
+  'sub_55_contaje_b':     { areaId: 'hematologia', hojaId: 'hematologia_h1', filaId: 'sub_55_contaje_b', label: '5.5 Contaje de B' },
+  'sub_56_vsg':           { areaId: 'hematologia', hojaId: 'hematologia_h1', filaId: 'sub_56_vsg', label: '5.6 VSG' },
+  'sub_gota_gruesa':      { areaId: 'hematologia', hojaId: 'hematologia_h1', filaId: 'sub_gota_gruesa', label: 'Gota Gruesa' },
+  'sub_58_frotis':        { areaId: 'hematologia', hojaId: 'hematologia_h1', filaId: 'sub_58_frotis', label: '5.8 Frotis de Sangre Periférica' },
+  'hem_general':          { areaId: 'hematologia', hojaId: 'hematologia_h1', label: 'Hematología Completa' },
+
+  // Uroanálisis Sub-Análisis
+  'sub_uro_51_glucosa':   { areaId: 'uroanalisis', hojaId: 'uroanalisis_h1', filaId: 'sub_uro_51_glucosa', label: '5.1 Glucosa' },
+  'sub_uro_52_proteinas': { areaId: 'uroanalisis', hojaId: 'uroanalisis_h1', filaId: 'sub_uro_52_proteinas', label: '5.2 Proteínas' },
+  'sub_uro_53_sedimentos':{ areaId: 'uroanalisis', hojaId: 'uroanalisis_h1', filaId: 'sub_uro_53_sedimentos', label: '5.3 Sedimentos' },
+  'sub_uro_54_ph':        { areaId: 'uroanalisis', hojaId: 'uroanalisis_h1', filaId: 'sub_uro_54_ph', label: '5.4 P.H' },
+  'sub_uro_55_densidad':  { areaId: 'uroanalisis', hojaId: 'uroanalisis_h1', filaId: 'sub_uro_55_densidad', label: '5.5 Densidad' },
+  'sub_uro_56_pigmentos': { areaId: 'uroanalisis', hojaId: 'uroanalisis_h1', filaId: 'sub_uro_56_pigmentos', label: '5.6 Pigmentos Biliares' },
+  'uro_general':          { areaId: 'uroanalisis', hojaId: 'uroanalisis_h1', label: 'Uroanálisis / Orina' },
+
+  // Coproanálisis Tipos y Parásitos
+  'cop_exa_sol_sal':      { areaId: 'coproanalisis', hojaId: 'coproanalisis_h1', filaId: 'cop_exa_sol_sal', label: 'EXA. DIRECTOS SOL-SAL' },
+  'cop_exa_sol_lugol':    { areaId: 'coproanalisis', hojaId: 'coproanalisis_h1', filaId: 'cop_exa_sol_lugol', label: 'EXA. DIRECTOS SOL-LUGOL' },
+  'cop_kato':             { areaId: 'coproanalisis', hojaId: 'coproanalisis_h1', filaId: 'cop_kato', label: 'KATO' },
+  'cop_sangre_oculta':    { areaId: 'coproanalisis', hojaId: 'coproanalisis_h1', filaId: 'cop_sangre_oculta', label: 'SANGRE OCULTA' },
+  'cop_muestras_pos':     { areaId: 'coproanalisis', hojaId: 'coproanalisis_h1', filaId: 'cop_muestras_pos', label: 'Nº DE MUESTRAS POSITIVAS' },
+  'cop_general':          { areaId: 'coproanalisis', hojaId: 'coproanalisis_h1', label: 'Coproanálisis / Heces' },
+
+  'par_ascaris':          { areaId: 'coproanalisis', hojaId: 'coproanalisis_h1', filaId: 'par_ascaris', label: 'ASCARIS LUMBRICOIDES' },
+  'par_ancylostoma':      { areaId: 'coproanalisis', hojaId: 'coproanalisis_h1', filaId: 'par_ancylostoma', label: 'ANCYLOSTOMA' },
+  'par_trichuris':        { areaId: 'coproanalisis', hojaId: 'coproanalisis_h1', filaId: 'par_trichuris', label: 'TRICHURIS TRICHURA' },
+  'par_enterobius':       { areaId: 'coproanalisis', hojaId: 'coproanalisis_h1', filaId: 'par_enterobius', label: 'ENTEROBIUS VERMICULARIS' },
+  'par_hymenolepis_nana': { areaId: 'coproanalisis', hojaId: 'coproanalisis_h1', filaId: 'par_hymenolepis_nana', label: 'HYMENOLEPIS NANA' },
+  'par_hymenolepis_dim':  { areaId: 'coproanalisis', hojaId: 'coproanalisis_h1', filaId: 'par_hymenolepis_dim', label: 'HYMENOLEPIS DIMINUTA' },
+  'par_entamoeba_hist':   { areaId: 'coproanalisis', hojaId: 'coproanalisis_h1', filaId: 'par_entamoeba_hist', label: 'ENTAMOEBA HISTOLÍTICA' },
+  'par_strongyloides':    { areaId: 'coproanalisis', hojaId: 'coproanalisis_h1', filaId: 'par_strongyloides', label: 'STRONGYLOIDES ESTERCORALIS' },
+  'par_balantidium':      { areaId: 'coproanalisis', hojaId: 'coproanalisis_h1', filaId: 'par_balantidium', label: 'BALANTIDIUM COLI' },
+  'par_entamoeba_coli':   { areaId: 'coproanalisis', hojaId: 'coproanalisis_h1', filaId: 'par_entamoeba_coli', label: 'ENTAMOEBA COLI' },
+  'par_yodamoeba':        { areaId: 'coproanalisis', hojaId: 'coproanalisis_h1', filaId: 'par_yodamoeba', label: 'YODAMOEBA BUSTHLII' },
+  'par_endolimax':        { areaId: 'coproanalisis', hojaId: 'coproanalisis_h1', filaId: 'par_endolimax', label: 'ENDOLIMAX NANA' },
+  'par_giardia':          { areaId: 'coproanalisis', hojaId: 'coproanalisis_h1', filaId: 'par_giardia', label: 'GIARDIA DUODENALE' },
+  'par_tricomonas':       { areaId: 'coproanalisis', hojaId: 'coproanalisis_h1', filaId: 'par_tricomonas', label: 'TRICOMONAS HOMINIS' },
+  'par_chilomastix':      { areaId: 'coproanalisis', hojaId: 'coproanalisis_h1', filaId: 'par_chilomastix', label: 'CHILOMASTIX MESNILI' },
+  'par_blastocystis':     { areaId: 'coproanalisis', hojaId: 'coproanalisis_h1', filaId: 'par_blastocystis', label: 'BLASTOCYSTIS SSP' },
+  'par_taenia':           { areaId: 'coproanalisis', hojaId: 'coproanalisis_h1', filaId: 'par_taenia', label: 'TAENIA SP' },
+  'par_levaduras':        { areaId: 'coproanalisis', hojaId: 'coproanalisis_h1', filaId: 'par_levaduras', label: 'LEVADURAS' },
+
+  // Serología Exámenes (usan grupos especiales por servicio)
+  'ser1_ha':   { areaId: 'serologia', hojaId: 'serologia_h1', serologiaGroup: 'ser1_ha', label: 'HEPATITIS A' },
+  'ser1_hb':   { areaId: 'serologia', hojaId: 'serologia_h1', serologiaGroup: 'ser1_hb', label: 'HEPATITIS B' },
+  'ser1_hc':   { areaId: 'serologia', hojaId: 'serologia_h1', serologiaGroup: 'ser1_hc', label: 'HEPATITIS C' },
+  'ser1_pe':   { areaId: 'serologia', hojaId: 'serologia_h1', serologiaGroup: 'ser1_pe', label: 'PRUEBA DE EMBARAZO' },
+  'ser1_cov':  { areaId: 'serologia', hojaId: 'serologia_h1', serologiaGroup: 'ser1_cov', label: 'COVID-19' },
+  'ser2_vd':   { areaId: 'serologia', hojaId: 'serologia_h2', serologiaGroup: 'ser2_vd', label: 'VDRL' },
+  'ser2_hiv':  { areaId: 'serologia', hojaId: 'serologia_h2', serologiaGroup: 'ser2_hiv', label: 'HIV' },
+  'ser2_den':  { areaId: 'serologia', hojaId: 'serologia_h2', serologiaGroup: 'ser2_den', label: 'DENGUE' },
+  'ser2_hp':   { areaId: 'serologia', hojaId: 'serologia_h2', serologiaGroup: 'ser2_hp', label: 'HELICOBACTER PYLORI SANGRE' },
+  'ser2_aslo': { areaId: 'serologia', hojaId: 'serologia_h2', serologiaGroup: 'ser2_aslo', label: 'ASLO' }
+};
+
+/**
+ * Infiere la clave (key) interna de un examen a partir de su nombre si no la tiene asignada.
+ * @param {string} nombreExamen
+ * @returns {string|null}
+ */
+function inferirExamenKey(nombreExamen) {
+  const n = (nombreExamen || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  if (/hemoglobin/.test(n)) return 'sub_51_hemoglobina';
+  if (/hematocrit/.test(n)) return 'sub_52_hematocrito';
+  if (/plaqueta/.test(n)) return 'sub_53_plaquetas';
+  if (/diferencial/.test(n)) return 'sub_54_diferencial';
+  if (/contaje.*b/.test(n)) return 'sub_55_contaje_b';
+  if (/vsg|velocidad.*sediment/.test(n)) return 'sub_56_vsg';
+  if (/gota.*gruesa/.test(n)) return 'sub_gota_gruesa';
+  if (/frotis/.test(n)) return 'sub_58_frotis';
+  if (/hemo|hemato/.test(n)) return 'hem_general';
+
+  if (/glucos.*urin|glucosa/.test(n)) return 'sub_uro_51_glucosa';
+  if (/proteina/.test(n)) return 'sub_uro_52_proteinas';
+  if (/sedimento/.test(n)) return 'sub_uro_53_sedimentos';
+  if (/p\.?h/.test(n)) return 'sub_uro_54_ph';
+  if (/densidad/.test(n)) return 'sub_uro_55_densidad';
+  if (/pigmento/.test(n)) return 'sub_uro_56_pigmentos';
+  if (/orin|urin|uroan/.test(n)) return 'uro_general';
+
+  if (/sol.*sal/.test(n)) return 'cop_exa_sol_sal';
+  if (/sol.*lugol/.test(n)) return 'cop_exa_sol_lugol';
+  if (/kato/.test(n)) return 'cop_kato';
+  if (/sangre.*oculta/.test(n)) return 'cop_sangre_oculta';
+  if (/ascaris/.test(n)) return 'par_ascaris';
+  if (/ancylostoma/.test(n)) return 'par_ancylostoma';
+  if (/trichuris/.test(n)) return 'par_trichuris';
+  if (/enterobius/.test(n)) return 'par_enterobius';
+  if (/hymenolepis.*nana/.test(n)) return 'par_hymenolepis_nana';
+  if (/hymenolepis.*dim/.test(n)) return 'par_hymenolepis_dim';
+  if (/entamoeba.*hist/.test(n)) return 'par_entamoeba_hist';
+  if (/strongyloid/.test(n)) return 'par_strongyloides';
+  if (/balantidium/.test(n)) return 'par_balantidium';
+  if (/entamoeba.*coli/.test(n)) return 'par_entamoeba_coli';
+  if (/yodamoeba/.test(n)) return 'par_yodamoeba';
+  if (/endolimax/.test(n)) return 'par_endolimax';
+  if (/giardia/.test(n)) return 'par_giardia';
+  if (/tricomonas/.test(n)) return 'par_tricomonas';
+  if (/chilomastix/.test(n)) return 'par_chilomastix';
+  if (/blastocyst/.test(n)) return 'par_blastocystis';
+  if (/taenia/.test(n)) return 'par_taenia';
+  if (/levadur/.test(n)) return 'par_levaduras';
+  if (/heces|copro/.test(n)) return 'cop_general';
+
+  if (/hepatitis.*a\b/.test(n)) return 'ser1_ha';
+  if (/hepatitis.*b\b/.test(n)) return 'ser1_hb';
+  if (/hepatitis.*c\b/.test(n)) return 'ser1_hc';
+  if (/embaraz/.test(n)) return 'ser1_pe';
+  if (/covid/.test(n)) return 'ser1_cov';
+  if (/vdrl/.test(n)) return 'ser2_vd';
+  if (/vih|hiv/.test(n)) return 'ser2_hiv';
+  if (/dengue/.test(n)) return 'ser2_den';
+  if (/helicobacter/.test(n)) return 'ser2_hp';
+  if (/aslo/.test(n)) return 'ser2_aslo';
+
+  return null;
+}
+
+// Lista completa de servicios predeterminados del hospital basados en los Formatos
+const SERVICIOS_PREDETERMINADOS = [
+  { nombre: 'Emergencia Adulto',     key: 'emerg_adulto' },
+  { nombre: 'Emergencia Pediátrica', key: 'emerg_pediatrica' },
+  { nombre: 'Hospitalización',       key: 'hospitalizacion' },
+  { nombre: 'Consulta Externa',      key: 'cons_externa' },
+  { nombre: 'Consulta Especial',     key: 'cons_especial' },
+  { nombre: 'Prenatal',              key: 'prenatal' },
+  { nombre: 'Pediatría',             key: 'pediatria' },
+  { nombre: 'Medicina Interna',      key: 'med_interna' },
+  { nombre: 'Obstetricia',          key: 'obstetricia' },
+  { nombre: 'Cirugía',              key: 'cirugia' },
+  { nombre: 'Traumatología',        key: 'traumatologia' },
+  { nombre: 'Observación',          key: 'observacion' },
+  { nombre: 'CAI',                  key: 'cai' },
+  { nombre: 'Ginecología',          key: 'ginecologia' },
+  { nombre: 'Epidemiología',        key: 'epidemiologia' },
+  { nombre: 'Neumonología',         key: 'neumonologia' },
+  { nombre: 'Higiene del Adulto',   key: 'higiene_adulto' }
+];
+
+/**
+ * Infiere la clave (key) interna de un servicio de atención a partir de su nombre.
+ * @param {string} nombreServicio
+ * @returns {string}
+ */
+function inferirServicioKey(nombreServicio) {
+  const n = (nombreServicio || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  if (/emerg.*pediatr|pediatr.*emerg/.test(n)) return 'emerg_pediatrica';
+  if (/emerg/.test(n)) return 'emerg_adulto';
+  if (/hospitaliz/.test(n)) return 'hospitalizacion';
+  if (/consulta\s*especial|cons.*esp/.test(n)) return 'cons_especial';
+  if (/consulta\s*externa|cons.*ext/.test(n)) return 'cons_externa';
+  if (/prenatal/.test(n)) return 'prenatal';
+  if (/pediatr/.test(n)) return 'pediatria';
+  if (/med.*interna/.test(n)) return 'med_interna';
+  if (/obstetric/.test(n)) return 'obstetricia';
+  if (/cirug/.test(n)) return 'cirugia';
+  if (/traumatolog/.test(n)) return 'traumatologia';
+  if (/observac/.test(n)) return 'observacion';
+  if (/\bcai\b/.test(n)) return 'cai';
+  if (/ginecolog/.test(n)) return 'ginecologia';
+  if (/epidemiolog/.test(n)) return 'epidemiologia';
+  if (/neumonolog/.test(n)) return 'neumonologia';
+  if (/higiene/.test(n)) return 'higiene_adulto';
+
+  return 'srv_custom';
+}
+
+/**
+ * Obtiene el sufijo de fila de serología según la key o el nombre del servicio.
+ * @param {string} nombreServicio
+ * @returns {string}
+ */
+function getSerologiaSuffix(nombreServicio) {
+  const sKey = inferirServicioKey(nombreServicio);
+  if (sKey === 'emerg_pediatrica') return 'emerg_pediatrica';
+  if (sKey === 'cons_especial')    return 'cons_especial';
+  if (sKey === 'cons_externa')     return 'cons_externa';
+  if (sKey === 'hospitalizacion')  return 'hospitalizacion';
+  return 'emerg_adulto';
+}
+
+/**
+ * Obtiene el destino en los Formatos Estadísticos a partir de la key del examen y el nombre del servicio.
+ * @param {string} examenKey
+ * @param {string} servicioNombre
+ * @returns {{ areaId: string, hojaId: string, filaExamenId: string|null, filaServicioId: string|null }|null}
+ */
+function obtenerDestinoFormato(examenKey, servicioNombre) {
+  if (!examenKey) return null;
+  const config = EXAMEN_KEY_MAP[examenKey];
+  if (!config) return null;
+
+  const areaId = config.areaId;
+  const hojaId = config.hojaId;
+
+  let filaExamenId = config.filaId || null;
+  let filaServicioId = null;
+
+  if (config.serologiaGroup) {
+    const sfx = getSerologiaSuffix(servicioNombre);
+    filaServicioId = `${config.serologiaGroup}_${sfx}`;
+    filaExamenId = filaServicioId;
+  } else {
+    filaServicioId = getFilaParaServicio(servicioNombre, areaId);
+  }
+
+  return { areaId, hojaId, filaExamenId, filaServicioId };
+}
+
 

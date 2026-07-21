@@ -46,14 +46,20 @@ document.addEventListener('DOMContentLoaded', () => {
     bioCtrl.init();
     formatosCtrl.init();
 
-    // Conectar los controladores: cuando se guarda o elimina un paciente,
-    // el FormatosController actualiza automáticamente la grilla mensual.
-    bioCtrl.setCallbacksPaciente(
-      /* onGuardado  */ (exNombre, srvNombre, fecha, cant) =>
-        formatosCtrl.autollenarDesdeRegistro(exNombre, srvNombre, fecha, cant),
-      /* onEliminado */ (exNombre, srvNombre, fecha, cant) =>
-        formatosCtrl.deshacerAutollenado(exNombre, srvNombre, fecha, cant)
-    );
+    // Conectar los controladores: el Resumen del Día es la base central para los Formatos
+    const sincronizarFecha = (fecha) => {
+      formatosCtrl.sincronizarDesdeResumen(
+        fecha,
+        bioRepo.obtenerPacientes(),
+        bioRepo.obtenerExamenes(),
+        bioRepo.obtenerServicios()
+      );
+    };
+
+    bioCtrl.setOnSincronizarFormatos(sincronizarFecha);
+
+    // Sincronización inicial para la fecha actual al arrancar
+    sincronizarFecha(DateUtils.getHoy());
   });
 
 });

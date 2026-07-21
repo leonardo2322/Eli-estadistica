@@ -165,76 +165,76 @@ class FormatosController {
   }
 
   // ─────────────────────────────────────────────────────────────
-  // AUTO-LLENADO DESDE REGISTRO DE PACIENTES
+  // SINCRONIZACIÓN DESDE REGISTRO DE ATENCIÓN (RESUMEN DEL DÍA)
   // ─────────────────────────────────────────────────────────────
 
   /**
-   * Incrementa la celda correspondiente en la grilla de formatos
-   * cuando se guarda un nuevo registro de paciente.
+   * Sincroniza las celdas de los Formatos Estadísticos para una fecha determinada
+   * basándose en los registros de atención acumulados del día.
    *
-   * Proceso:
-   *   1. Determina el área a partir del nombre del examen.
-   *   2. Determina la fila a partir del nombre del servicio.
-   *   3. Usa el turno actual (hora del sistema) y la fecha del registro.
-   *   4. Incrementa el contador en la celda.
-   *   5. Si la vista muestra esa grilla, la refresca.
-   *
-   * @param {string} examenNombre   – Nombre del examen (ej. 'Orina', 'Hemograma')
-   * @param {string} servicioNombre – Nombre del servicio (ej. 'Emergencia')
-   * @param {string} fecha          – Fecha del registro 'YYYY-MM-DD'
-   * @param {number} cantidad       – Cantidad de exámenes realizados
+   * @param {string} fecha – Fecha en formato 'YYYY-MM-DD'
+   * @param {Array} registrosAtencion – Array completo de registros de atención
+   * @param {Array} examenesCat – Catálogo de exámenes de Bioanálisis
+   * @param {Array} serviciosCat – Catálogo de servicios de Bioanálisis
    */
-  autollenarDesdeRegistro(examenNombre, servicioNombre, fecha, cantidad) {
-    const areaId = getAreaParaExamen(examenNombre);
-    if (!areaId) return; // Examen no mapea a ningún área conocida
-
-    const area = HOSPITAL_AREAS.find(a => a.id === areaId);
-    if (!area) return;
-
-    const hoja   = area.hojas[0]; // Primera hoja para los conteos por servicio
-    const filaId = getFilaParaServicio(servicioNombre, areaId);
-    if (!filaId) return;
-
+  sincronizarDesdeResumen(fecha, registrosAtencion, examenesCat, serviciosCat) {
+    if (!fecha) return;
     const { ano, mes, dia } = DateUtils.parsearFecha(fecha);
     const turnoId = DateUtils.getTurnoActual();
 
-    // Obtener valor actual y sumar la cantidad
-    const actual   = this.repo.obtenerCelda(areaId, hoja.id, turnoId, ano, mes, filaId, dia);
-    const nuevoVal = actual + (parseInt(cantidad) || 1);
-    this.repo.actualizarCelda(areaId, hoja.id, turnoId, ano, mes, filaId, dia, nuevoVal);
+    // 1. Identificar todos los destinos en Formatos posibles para inicializar/resetear
+    const celdasAfectadasKeys = new Set();
+    const acumuladorCeldas = {};
 
-    // Si la vista está mostrando exactamente esta grilla, refrescarla
-    this._refrescarSiCoincide(areaId, hoja.id, turnoId, mes, ano);
-  }
+    (examenesCat || []).forEach(ex => {
+      (serviciosCat || []).forEach(srv => {
+        const keyEx = ex.key || inferirExamenKey(ex.nombre);
+        const dest = obtenerDestinoFormato(keyEx, srv.nombre);
+        if (dest) {
+          if (dest.filaServicioId) celdasAfectadasKeys.add(`${dest.areaId}|${dest.hojaId}|${dest.filaServicioId}`);
+          if (dest.filaExamenId)   celdasAfectadasKeys.add(`${dest.areaId}|${dest.hojaId}|${dest.filaExamenId}`);
+        }
+      });
+    });
 
-  /**
-   * Decrementa la celda correspondiente cuando se elimina un registro de paciente.
-   * El conteo no baja de 0.
-   *
-   * @param {string} examenNombre
-   * @param {string} servicioNombre
-   * @param {string} fecha
-   * @param {number} cantidad
-   */
-  deshacerAutollenado(examenNombre, servicioNombre, fecha, cantidad) {
-    const areaId = getAreaParaExamen(examenNombre);
-    if (!areaId) return;
+    celdasAfectadasKeys.forEach(k => { acumuladorCeldas[k] = 0; });
 
-    const area = HOSPITAL_AREAS.find(a => a.id === areaId);
-    if (!area) return;
+    // 2. Acumular los totales de los registros de atención para la fecha dada
+    const pacsDelDia = (registrosAtencion || []).filter(p => p.fecha === fecha);
 
-    const hoja   = area.hojas[0];
-    const filaId = getFilaParaServicio(servicioNombre, areaId);
-    if (!filaId) return;
+    pacsDelDia.forEach(p => {
+      const ex = examenesCat.find(e => e.id === p.examenId);
+      const srv = serviciosCat.find(s => s.id === p.servicioId);
+      if (!ex || !srv) return;
 
-    const { ano, mes, dia } = DateUtils.parsearFecha(fecha);
-    const turnoId = DateUtils.getTurnoActual();
+      const keyEx = ex.key || inferirExamenKey(ex.nombre);
+      const destino = obtenerDestinoFormato(keyEx, srv.nombre);
 
-    const actual   = this.repo.obtenerCelda(areaId, hoja.id, turnoId, ano, mes, filaId, dia);
-    const nuevoVal = Math.max(0, actual - (parseInt(cantidad) || 1));
-    this.repo.actualizarCelda(areaId, hoja.id, turnoId, ano, mes, filaId, dia, nuevoVal);
+      if (destino) {
+        const { areaId, hojaId, filaExamenId, filaServicioId } = destino;
+        const cant = parseInt(p.cantidad) || 1;
 
-    this._refrescarSiCoincide(areaId, hoja.id, turnoId, mes, ano);
+        if (filaServicioId) {
+          const kSrv = `${areaId}|${hojaId}|${filaServicioId}`;
+          acumuladorCeldas[kSrv] = (acumuladorCeldas[kSrv] || 0) + cant;
+          celdasAfectadasKeys.add(kSrv);
+        }
+
+        if (filaExamenId && filaExamenId !== filaServicioId) {
+          const kEx = `${areaId}|${hojaId}|${filaExamenId}`;
+          acumuladorCeldas[kEx] = (acumuladorCeldas[kEx] || 0) + cant;
+          celdasAfectadasKeys.add(kEx);
+        }
+      }
+    });
+
+    // 3. Persistir en el repositorio de Formatos el acumulado exacto del día
+    celdasAfectadasKeys.forEach(keyStr => {
+      const [areaId, hojaId, filaId] = keyStr.split('|');
+      const valAcumulado = acumuladorCeldas[keyStr] || 0;
+      this.repo.actualizarCelda(areaId, hojaId, turnoId, ano, mes, filaId, dia, valAcumulado);
+      this._refrescarSiCoincide(areaId, hojaId, turnoId, mes, ano);
+    });
   }
 
   /**

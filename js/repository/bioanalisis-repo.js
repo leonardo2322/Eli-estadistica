@@ -42,14 +42,40 @@ class BioanalisisRepository {
   _seed() {
     const hoy = DateUtils.getHoy();
 
-    if (!localStorage.getItem(this.KEYS.SERVICIOS)) {
-      localStorage.setItem(this.KEYS.SERVICIOS, JSON.stringify([
-        { id: 'srv-1', nombre: 'Emergencia',        fecha: hoy },
-        { id: 'srv-2', nombre: 'Consulta Externa',  fecha: hoy },
-        { id: 'srv-3', nombre: 'Hospitalización',   fecha: hoy }
-      ]));
+    // 1. Servicios Predeterminados
+    let srvExistentes = this._get(this.KEYS.SERVICIOS);
+    let cambioSrv = false;
+
+    if (!srvExistentes.length) {
+      srvExistentes = SERVICIOS_PREDETERMINADOS.map((item, i) => ({
+        id: `srv-${i + 1}`,
+        nombre: item.nombre,
+        key: item.key,
+        fecha: hoy
+      }));
+      cambioSrv = true;
+    } else {
+      const norm = str => (str || '').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      const nombresSet = new Set(srvExistentes.map(s => norm(s.nombre)));
+
+      SERVICIOS_PREDETERMINADOS.forEach((item, idx) => {
+        if (!nombresSet.has(norm(item.nombre))) {
+          srvExistentes.push({
+            id: `srv-auto-${Date.now()}-${idx}`,
+            nombre: item.nombre,
+            key: item.key,
+            fecha: hoy
+          });
+          cambioSrv = true;
+        }
+      });
     }
 
+    if (cambioSrv) {
+      this._set(this.KEYS.SERVICIOS, srvExistentes);
+    }
+
+    // 2. Exámenes Predeterminados
     const examenesPredeterminados = [
       'Orina', 'Heces', 'Glicemia',
       'Hematología Completa', 'Hemoglobina', 'Hematocrito', 'Plaquetas',
@@ -72,20 +98,21 @@ class BioanalisisRepository {
       exExistentes = examenesPredeterminados.map((nombre, i) => ({
         id: `exm-${i + 1}`,
         nombre,
-        valor: 5
+        valor: 5,
+        key: inferirExamenKey(nombre)
       }));
       cambioEx = true;
     } else {
-      // Agregar exámenes faltantes sin duplicar
       const norm = str => (str || '').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
       const nombresSet = new Set(exExistentes.map(e => norm(e.nombre)));
-      
+
       examenesPredeterminados.forEach((nombre, idx) => {
         if (!nombresSet.has(norm(nombre))) {
           exExistentes.push({
             id: `exm-auto-${Date.now()}-${idx}`,
             nombre,
-            valor: 5
+            valor: 5,
+            key: inferirExamenKey(nombre)
           });
           cambioEx = true;
         }
@@ -110,15 +137,54 @@ class BioanalisisRepository {
   // MIGRACIÓN – Normaliza datos de versiones anteriores del app
   // ─────────────────────────────────────────────────────────────
   _migrar() {
-    // Exámenes: esquema antiguo usaba valorBase/metodo/valorAumento
+    // Servicios: incorporar claves y sembrar servicios predeterminados faltantes
+    const hoy = DateUtils.getHoy();
+    const srvs = this._get(this.KEYS.SERVICIOS);
+    let cambioSrv = false;
+    const norm = str => (str || '').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const nombresSet = new Set(srvs.map(s => norm(s.nombre)));
+
+    const srvMig = srvs.map(s => {
+      let mod = false;
+      const nuevo = { ...s };
+      if (!nuevo.key) {
+        nuevo.key = inferirServicioKey(nuevo.nombre);
+        mod = true;
+      }
+      if (mod) cambioSrv = true;
+      return nuevo;
+    });
+
+    SERVICIOS_PREDETERMINADOS.forEach((item, idx) => {
+      if (!nombresSet.has(norm(item.nombre))) {
+        srvMig.push({
+          id: `srv-auto-${Date.now()}-${idx}`,
+          nombre: item.nombre,
+          key: item.key,
+          fecha: hoy
+        });
+        cambioSrv = true;
+      }
+    });
+
+    if (cambioSrv) this._set(this.KEYS.SERVICIOS, srvMig);
+
+    // Exámenes: esquema antiguo usaba valorBase/metodo/valorAumento o no tenía 'key'
     const exs = this._get(this.KEYS.EXAMENES);
     let cambioEx = false;
     const exMig = exs.map(e => {
-      if (e.valor === undefined) {
-        cambioEx = true;
-        return { id: e.id, nombre: e.nombre, valor: parseFloat(e.valorBase || 5) };
+      let mod = false;
+      const nuevo = { ...e };
+      if (nuevo.valor === undefined) {
+        nuevo.valor = parseFloat(e.valorBase || 5);
+        mod = true;
       }
-      return e;
+      if (!nuevo.key) {
+        nuevo.key = inferirExamenKey(nuevo.nombre);
+        mod = true;
+      }
+      if (mod) cambioEx = true;
+      return nuevo;
     });
     if (cambioEx) this._set(this.KEYS.EXAMENES, exMig);
 
@@ -157,10 +223,13 @@ class BioanalisisRepository {
   /**
    * Crea o actualiza un servicio.
    * Si s.id está vacío/null, asigna un nuevo id y lo inserta.
-   * @param {{id?: string, nombre: string, fecha: string}} s
+   * @param {{id?: string, nombre: string, fecha: string, key?: string}} s
    * @returns {object} – El objeto guardado con id asignado
    */
   guardarServicio(s) {
+    if (!s.key) {
+      s.key = inferirServicioKey(s.nombre);
+    }
     const list = this.obtenerServicios();
     if (s.id) {
       const i = list.findIndex(x => x.id === s.id);
@@ -196,6 +265,9 @@ class BioanalisisRepository {
    */
   guardarExamen(e) {
     e.valor = parseFloat(e.valor) || 0;
+    if (!e.key) {
+      e.key = inferirExamenKey(e.nombre);
+    }
     const list = this.obtenerExamenes();
     if (e.id) {
       const i = list.findIndex(x => x.id === e.id);
