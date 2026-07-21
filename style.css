@@ -910,3 +910,440 @@ body {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ============================================================
+   FORMATOS ESTADÍSTICOS – BARRA DE CONTROL
+   ============================================================ */
+.formatos-control-bar {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 1rem 1.25rem;
+  box-shadow: 0 2px 12px rgba(13,148,136,.07);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.formatos-control-titulo {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  min-width: 200px;
+}
+
+.formatos-icon {
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.formatos-control-titulo h4 {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--teal-dark);
+}
+
+.formatos-controles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .75rem;
+  align-items: flex-end;
+  flex: 1;
+}
+
+.fmt-control-grupo {
+  display: flex;
+  flex-direction: column;
+  gap: .25rem;
+  min-width: 130px;
+}
+
+.fmt-label {
+  font-size: .73rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  letter-spacing: .03em;
+  text-transform: uppercase;
+}
+
+.fmt-select {
+  border-radius: 8px;
+  border-color: #e2e8f0;
+  font-size: .85rem;
+}
+
+.fmt-select:focus {
+  border-color: var(--teal);
+  box-shadow: 0 0 0 3px rgba(13,148,136,.15);
+}
+
+/* Navegador de período */
+.fmt-periodo { min-width: 220px; }
+
+.fmt-nav-periodo {
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+}
+
+.fmt-lbl-periodo {
+  font-size: .88rem;
+  font-weight: 700;
+  color: var(--teal-dark);
+  min-width: 120px;
+  text-align: center;
+  padding: .3rem .5rem;
+  background: var(--teal-light);
+  border-radius: 8px;
+  letter-spacing: .03em;
+  transition: background .2s;
+}
+
+.fmt-lbl-periodo.periodo-actual {
+  background: linear-gradient(135deg, #0d9488, #0f766e);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(13,148,136,.3);
+}
+
+.fmt-inputs-periodo {
+  display: flex;
+  align-items: center;
+  gap: .3rem;
+  margin-top: .3rem;
+}
+
+.fmt-inp-pequeno {
+  width: 58px !important;
+  text-align: center;
+  border-radius: 8px;
+  font-size: .82rem;
+}
+
+/* El input de año necesita más espacio (4 dígitos) */
+#fmt-inp-ano {
+  width: 84px !important;
+  min-width: 84px !important;
+  padding-left: .35rem !important;
+  padding-right: .1rem !important;
+}
+
+
+
+/* Acciones */
+.fmt-acciones {
+  display: flex;
+  gap: .5rem;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.fmt-guardado-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: .3rem;
+  font-size: .78rem;
+  font-weight: 700;
+  color: var(--teal);
+  background: var(--teal-light);
+  padding: .25rem .6rem;
+  border-radius: 20px;
+  animation: fadeIn .2s ease;
+}
+
+/* ============================================================
+   FORMATOS – GRILLA MENSUAL
+   ============================================================ */
+.grilla-placeholder {
+  text-align: center;
+  padding: 4rem 2rem;
+  background: #fff;
+  border-radius: 16px;
+  border: 2px dashed #e2e8f0;
+}
+
+.grilla-placeholder-icon {
+  font-size: 4rem;
+  margin-bottom: 1rem;
+}
+
+.grilla-placeholder h5 {
+  color: var(--teal-dark);
+  font-weight: 700;
+}
+
+/* Encabezado de la grilla */
+.grilla-header {
+  background: var(--area-color-soft, #eafaf1);
+  border-left: 5px solid var(--area-color, #27ae60);
+  border-radius: 12px 12px 0 0;
+  padding: 1rem 1.25rem;
+  margin-bottom: 0;
+}
+
+.grilla-header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: .75rem;
+}
+
+.grilla-hospital-info {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+}
+
+.area-icon {
+  font-size: 2.2rem;
+  line-height: 1;
+}
+
+.grilla-hospital-nombre {
+  font-size: .75rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+
+.grilla-area-nombre {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--area-color, #27ae60);
+}
+
+.grilla-periodo-info {
+  display: flex;
+  gap: .5rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.grilla-badge-mes,
+.grilla-badge-ano,
+.grilla-badge-turno {
+  font-size: .78rem;
+  font-weight: 700;
+  padding: .3rem .7rem;
+  border-radius: 20px;
+  background: rgba(255,255,255,.8);
+  border: 1px solid rgba(0,0,0,.08);
+  color: var(--text-dark);
+}
+
+.grilla-badge-turno {
+  background: var(--area-color, #27ae60);
+  color: #fff;
+  border-color: transparent;
+}
+
+.grilla-firma {
+  color: var(--text-muted);
+}
+
+/* Scroll horizontal de la tabla */
+.grilla-scroll-wrap {
+  overflow-x: auto;
+  border-radius: 0 0 12px 12px;
+  border: 1px solid #e2e8f0;
+  border-top: none;
+  background: #fff;
+  box-shadow: 0 4px 20px rgba(0,0,0,.06);
+}
+
+/* Tabla de formato */
+.tabla-formato {
+  min-width: 900px;
+  border-collapse: collapse;
+  width: 100%;
+  table-layout: fixed;
+}
+
+.tabla-formato th {
+  background: var(--teal-dark);
+  color: #fff;
+  font-size: .72rem;
+  font-weight: 700;
+  text-align: center;
+  padding: .4rem .2rem;
+  white-space: nowrap;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  letter-spacing: .04em;
+}
+
+.tabla-formato th.col-fila-nombre {
+  text-align: left;
+  padding-left: .75rem;
+  min-width: 200px;
+  width: 200px;
+  background: var(--teal-dark);
+}
+
+.tabla-formato th.col-dia {
+  min-width: 36px;
+  width: 36px;
+}
+
+.tabla-formato th.col-total {
+  min-width: 54px;
+  width: 54px;
+  background: #115e59;
+}
+
+.tabla-formato th.col-hoy {
+  background: #f59e0b;
+  color: #1e293b;
+}
+
+/* Fila de título de grupo */
+.fila-grupo-titulo td {
+  padding: 0;
+}
+
+.grupo-titulo-cell {
+  padding: .45rem .75rem !important;
+  background: #f8fafc;
+  border-top: 2px solid var(--area-color, #27ae60);
+}
+
+.grupo-titulo-badge {
+  font-size: .72rem;
+  font-weight: 800;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  color: var(--area-color, #27ae60);
+}
+
+/* Filas de datos */
+.fila-dato td,
+.fila-total td {
+  padding: .25rem .15rem;
+  border-bottom: 1px solid #f1f5f9;
+  font-size: .8rem;
+}
+
+.fila-dato:hover td {
+  background: #f0fdfa;
+}
+
+.fila-total td {
+  background: #f0fdfa;
+  font-weight: 700;
+  border-bottom: 2px solid #99f6e4;
+}
+
+.celda-nombre {
+  padding-left: .75rem !important;
+  font-size: .78rem;
+  color: var(--text-dark);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
+}
+
+.nombre-total {
+  font-weight: 800;
+  color: var(--teal-dark);
+  font-size: .8rem;
+}
+
+/* Celda con input editable */
+.celda-input {
+  padding: 2px !important;
+}
+
+.inp-celda {
+  width: 100%;
+  min-width: 32px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  text-align: center;
+  font-size: .78rem;
+  padding: .2rem .1rem;
+  background: transparent;
+  color: var(--text-dark);
+  transition: border-color .15s, background .15s;
+  -moz-appearance: textfield;
+}
+
+.inp-celda::-webkit-inner-spin-button,
+.inp-celda::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.inp-celda:focus {
+  outline: none;
+  border-color: var(--teal);
+  background: #f0fdfa;
+  box-shadow: 0 0 0 2px rgba(13,148,136,.2);
+}
+
+.inp-celda:not(:placeholder-shown) {
+  font-weight: 700;
+  color: var(--teal-dark);
+}
+
+/* Columna del día de hoy */
+.celda-hoy .inp-celda {
+  background: rgba(245, 158, 11, .08);
+  border-color: rgba(245, 158, 11, .3);
+}
+
+.celda-hoy .inp-celda:focus {
+  background: rgba(245, 158, 11, .15);
+  border-color: #f59e0b;
+  box-shadow: 0 0 0 2px rgba(245,158,11,.2);
+}
+
+/* Celda de total de fila */
+.celda-total-fila {
+  background: var(--teal-light) !important;
+  color: var(--teal-dark);
+  font-weight: 800;
+  font-size: .82rem;
+  min-width: 54px;
+}
+
+/* Celda de total para filas esTotal */
+.celda-total {
+  text-align: center;
+  font-size: .78rem;
+  font-weight: 600;
+  color: var(--teal-dark);
+  background: rgba(204,251,241,.4);
+}
+
+/* Toast animation */
+@keyframes toastIn {
+  from { opacity: 0; transform: translateX(60px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+/* Responsive: formatos */
+@media (max-width: 768px) {
+  .formatos-control-bar {
+    flex-direction: column;
+  }
+  .formatos-controles {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .fmt-control-grupo {
+    min-width: unset;
+    width: 100%;
+  }
+  .fmt-periodo {
+    min-width: unset;
+  }
+  .fmt-acciones {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+}
+
