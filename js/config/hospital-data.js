@@ -728,7 +728,7 @@ function getSerologiaSuffix(nombreServicio) {
  * Obtiene el destino en los Formatos Estadísticos a partir de la key del examen y el nombre del servicio.
  * @param {string} examenKey
  * @param {string} servicioNombre
- * @returns {{ areaId: string, hojaId: string, filaExamenId: string|null, filaServicioId: string|null }|null}
+ * @returns {{ areaId: string, hojaId: string, filaExamenId: string|null, filaServicioId: string|null, filasServicioIds: string[] }|null}
  */
 function obtenerDestinoFormato(examenKey, servicioNombre) {
   if (!examenKey) return null;
@@ -740,16 +740,43 @@ function obtenerDestinoFormato(examenKey, servicioNombre) {
 
   let filaExamenId = config.filaId || null;
   let filaServicioId = null;
+  let filasServicioIds = [];
 
   if (config.serologiaGroup) {
     const sfx = getSerologiaSuffix(servicioNombre);
     filaServicioId = `${config.serologiaGroup}_${sfx}`;
     filaExamenId = filaServicioId;
+    filasServicioIds = [filaServicioId];
   } else {
     filaServicioId = getFilaParaServicio(servicioNombre, areaId);
+    if (filaServicioId) filasServicioIds.push(filaServicioId);
+
+    // Buscar también en sub-grupos (como PACIENTES HOSPITALIZADOS o CONSULTA ESPECIAL)
+    const area = HOSPITAL_AREAS.find(a => a.id === areaId);
+    if (area) {
+      const sKey = inferirServicioKey(servicioNombre);
+      const n = (servicioNombre || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+      area.hojas.forEach(hoja => {
+        hoja.grupos.forEach((grupo, gIdx) => {
+          if (gIdx > 0) { // Sub-grupos de detalle
+            grupo.filas.forEach(f => {
+              if (!f.esTotal) {
+                const fLabel = f.label.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+                if (fLabel.includes(n) || (sKey !== 'srv_custom' && f.id.includes(sKey))) {
+                  if (!filasServicioIds.includes(f.id)) {
+                    filasServicioIds.push(f.id);
+                  }
+                }
+              }
+            });
+          }
+        });
+      });
+    }
   }
 
-  return { areaId, hojaId, filaExamenId, filaServicioId };
+  return { areaId, hojaId, filaExamenId, filaServicioId, filasServicioIds };
 }
 
 

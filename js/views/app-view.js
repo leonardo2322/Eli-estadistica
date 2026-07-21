@@ -20,6 +20,17 @@
 
 'use strict';
 
+const FRASES_ELIANA = [
+  '"Dicen que los buenos resultados dependen de la muestra... pero esta aplicación tuvo la suerte de tener a la más hermosa y mejor licenciada en bioanálisis, Eliana Morales."',
+  '"No hay microscopio en el mundo capaz de medir lo grande que es tu talento, dedicación y corazón, hermosa Eliana Morales."',
+  '"Cada análisis que realizas lleva la marca de tu excelencia, pasión y dulzura. ¡Sigue brillando siempre, Eli!"',
+  '"En cada muestra pones tu corazón y tu ciencia. La medicina y este laboratorio son mejores gracias a ti, Lic. Eliana Morales."',
+  '"Tu sonrisa ilumina el laboratorio y tu profesionalismo inspira a todos a tu alrededor. ¡Mucho ánimo en tu jornada!"',
+  '"Entre pipetas, reactivos y tubos de ensayo, la fórmula perfecta siempre serás tú, bella Eliana Morales."',
+  '"Que la precisión te acompañe en cada análisis y el éxito corone todos tus resultados de hoy. ¡Eres la mejor!"',
+  '"Con amor, ciencia y entrega impecable, haces que cada día de trabajo se convierta en una obra maestra. ¡Orgullosos de ti!"'
+];
+
 class AppView {
 
   constructor() {

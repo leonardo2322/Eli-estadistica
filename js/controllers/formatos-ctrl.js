@@ -191,8 +191,10 @@ class FormatosController {
         const keyEx = ex.key || inferirExamenKey(ex.nombre);
         const dest = obtenerDestinoFormato(keyEx, srv.nombre);
         if (dest) {
-          if (dest.filaServicioId) celdasAfectadasKeys.add(`${dest.areaId}|${dest.hojaId}|${dest.filaServicioId}`);
-          if (dest.filaExamenId)   celdasAfectadasKeys.add(`${dest.areaId}|${dest.hojaId}|${dest.filaExamenId}`);
+          (dest.filasServicioIds || []).forEach(fSrvId => {
+            if (fSrvId) celdasAfectadasKeys.add(`${dest.areaId}|${dest.hojaId}|${fSrvId}`);
+          });
+          if (dest.filaExamenId) celdasAfectadasKeys.add(`${dest.areaId}|${dest.hojaId}|${dest.filaExamenId}`);
         }
       });
     });
@@ -211,27 +213,35 @@ class FormatosController {
       const destino = obtenerDestinoFormato(keyEx, srv.nombre);
 
       if (destino) {
-        const { areaId, hojaId, filaExamenId, filaServicioId } = destino;
+        const { areaId, hojaId, filaExamenId, filasServicioIds } = destino;
         const cant = parseInt(p.cantidad) || 1;
+        const valUnitario = parseFloat(ex.valor) || 0;
+        const valorAcumuladoExamen = Math.round(parseFloat(p.total) || (cant * valUnitario));
 
-        if (filaServicioId) {
-          const kSrv = `${areaId}|${hojaId}|${filaServicioId}`;
-          acumuladorCeldas[kSrv] = (acumuladorCeldas[kSrv] || 0) + cant;
-          celdasAfectadasKeys.add(kSrv);
-        }
+        // A. Para las filas de servicio: acumula la cantidad de atenciones realizadas
+        (filasServicioIds || []).forEach(fSrvId => {
+          if (fSrvId) {
+            const kSrv = `${areaId}|${hojaId}|${fSrvId}`;
+            acumuladorCeldas[kSrv] = (acumuladorCeldas[kSrv] || 0) + cant;
+            celdasAfectadasKeys.add(kSrv);
+          }
+        });
 
-        if (filaExamenId && filaExamenId !== filaServicioId) {
+        // B. Para las filas de examen: acumula el VALOR ACUMULADO numérico puro (ej. 3 x 5 = 15)
+        if (filaExamenId) {
           const kEx = `${areaId}|${hojaId}|${filaExamenId}`;
-          acumuladorCeldas[kEx] = (acumuladorCeldas[kEx] || 0) + cant;
-          celdasAfectadasKeys.add(kEx);
+          if (!filasServicioIds || !filasServicioIds.includes(filaExamenId) || areaId === 'serologia') {
+            acumuladorCeldas[kEx] = (acumuladorCeldas[kEx] || 0) + valorAcumuladoExamen;
+            celdasAfectadasKeys.add(kEx);
+          }
         }
       }
     });
 
-    // 3. Persistir en el repositorio de Formatos el acumulado exacto del día
+    // 3. Persistir en el repositorio de Formatos el acumulado numérico puro del día
     celdasAfectadasKeys.forEach(keyStr => {
       const [areaId, hojaId, filaId] = keyStr.split('|');
-      const valAcumulado = acumuladorCeldas[keyStr] || 0;
+      const valAcumulado = Math.round(acumuladorCeldas[keyStr] || 0);
       this.repo.actualizarCelda(areaId, hojaId, turnoId, ano, mes, filaId, dia, valAcumulado);
       this._refrescarSiCoincide(areaId, hojaId, turnoId, mes, ano);
     });

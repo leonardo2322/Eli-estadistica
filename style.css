@@ -354,6 +354,7 @@ body {
   font-weight: 400;
   max-width: 900px;
   margin: 0 auto 2rem;
+  transition: opacity 0.8s ease-in-out, transform 0.8s ease-in-out;
 }
 
 .hero-divider {
