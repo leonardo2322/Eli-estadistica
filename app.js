@@ -30,6 +30,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // ── Repositorios ────────────────────────────────────────────
   const bioRepo      = new BioanalisisRepository();
   const formatosRepo = new FormatosRepository();
+  const firebaseRepo = new FirebaseRepository();
 
   // ── Vistas ──────────────────────────────────────────────────
   const loginView    = new LoginView();

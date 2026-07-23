@@ -1,0 +1,29 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Reglas de Seguridad para Eli-Estadística (Hospital San José)
+    // Permite lectura y escritura en las colecciones del sistema
+    
+    match /pacientes/{pacienteId} {
+      allow read, write: if true;
+    }
+
+    match /examenes/{examenId} {
+      allow read, write: if true;
+    }
+
+    match /servicios/{servicioId} {
+      allow read, write: if true;
+    }
+
+    match /formatos/{formatoId} {
+      allow read, write: if true;
+    }
+
+    match /_ping/{docId} {
+      allow read, write: if true;
+    }
+  }
+}
