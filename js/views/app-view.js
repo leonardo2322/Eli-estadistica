@@ -33,12 +33,38 @@ const FRASES_ELIANA = [
 
 function esServicioDeArea(nombreServicio, areaId) {
   if (!areaId) return true;
-  const norm = (nombreServicio || '').toLowerCase().trim();
+  const norm = (nombreServicio || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
 
-  // 'Prenatal' es un servicio específico de Uroanálisis en las planillas oficiales
-  if (norm.includes('prenatal') && areaId !== 'uroanalisis') {
+  // Para Serología: ÚNICAMENTE los 5 servicios oficiales de las planillas de Serología (H1 y H2)
+  if (areaId === 'serologia') {
+    const SERVICIOS_SEROLOGIA = [
+      'emergencia adulto',
+      'emergencia pediatrica',
+      'hospitalizacion',
+      'consulta externa',
+      'consulta especial'
+    ];
+    return SERVICIOS_SEROLOGIA.some(s => norm.includes(s));
+  }
+
+  // Para Uroanálisis: los 5 principales + Prenatal
+  if (areaId === 'uroanalisis') {
+    const SERVICIOS_UROANALISIS = [
+      'emergencia adulto',
+      'emergencia pediatrica',
+      'hospitalizacion',
+      'consulta externa',
+      'consulta especial',
+      'prenatal'
+    ];
+    return SERVICIOS_UROANALISIS.some(s => norm.includes(s));
+  }
+
+  // Para Coproanálisis y Hematología: omitir Prenatal que es exclusivo de Uroanálisis
+  if (norm.includes('prenatal')) {
     return false;
   }
+
   return true;
 }
 
