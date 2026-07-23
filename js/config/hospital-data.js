@@ -779,4 +779,26 @@ function obtenerDestinoFormato(examenKey, servicioNombre) {
   return { areaId, hojaId, filaExamenId, filaServicioId, filasServicioIds };
 }
 
+/**
+ * Obtiene las hojas disponibles para un área específica.
+ * @param {string} areaId
+ * @returns {Array<{id: string, label: string}>}
+ */
+function getHojasParaArea(areaId) {
+  const area = HOSPITAL_AREAS.find(a => a.id === areaId);
+  if (!area) return [];
+  return area.hojas.map(h => ({ id: h.id, label: h.label }));
+}
 
+/**
+ * Obtiene el nombre/etiqueta de una hoja a partir de su areaId y hojaId.
+ * @param {string} areaId
+ * @param {string} hojaId
+ * @returns {string}
+ */
+function getHojaNombre(areaId, hojaId) {
+  const area = HOSPITAL_AREAS.find(a => a.id === areaId);
+  if (!area) return '';
+  const hoja = area.hojas.find(h => h.id === hojaId);
+  return hoja ? hoja.label : '';
+}

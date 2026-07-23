@@ -68,11 +68,38 @@ class FormatosController {
     const area = HOSPITAL_AREAS.find(a => a.id === areaId);
     if (!area) { this.view.mostrarSeleccionArea(); return; }
 
-    const hoja = area.hojas.find(h => h.id === hojaId) || area.hojas[0];
-    if (!hoja) { this.view.mostrarSeleccionArea(); return; }
+    const hojaOriginal = area.hojas.find(h => h.id === hojaId) || area.hojas[0];
+    if (!hojaOriginal) { this.view.mostrarSeleccionArea(); return; }
+
+    // Clonar hoja para inyectar filas adicionales sin alterar el objeto estático
+    const hoja = JSON.parse(JSON.stringify(hojaOriginal));
+
+    // Obtener servicios y exámenes personalizados registrados en Mantenimiento
+    const servicios = JSON.parse(localStorage.getItem('eli_servicios')) || [];
+    const examenes  = JSON.parse(localStorage.getItem('eli_examenes')) || [];
+
+    const idsExistentes = new Set();
+    hoja.grupos.forEach(g => g.filas.forEach(f => idsExistentes.add(f.id)));
+
+    const srvCustom = servicios.filter(s => s.areaId === area.id && s.hojaId === hojaOriginal.id && !idsExistentes.has(s.id));
+    const exmCustom = examenes.filter(e => e.areaId === area.id && e.hojaId === hojaOriginal.id && !idsExistentes.has(e.id));
+
+    if (srvCustom.length > 0) {
+      hoja.grupos.push({
+        titulo: 'SERVICIOS ADICIONALES (MANTENIMIENTO)',
+        filas: srvCustom.map(s => ({ id: s.id, label: s.nombre.toUpperCase(), esTotal: false }))
+      });
+    }
+
+    if (exmCustom.length > 0) {
+      hoja.grupos.push({
+        titulo: 'EXÁMENES ADICIONALES (MANTENIMIENTO)',
+        filas: exmCustom.map(e => ({ id: e.id, label: e.nombre, esTotal: false }))
+      });
+    }
 
     // Obtener datos guardados de esta grilla
-    const datos = this.repo.obtenerGrilla(area.id, hoja.id, turnoId, ano, mes);
+    const datos = this.repo.obtenerGrilla(area.id, hojaOriginal.id, turnoId, ano, mes);
 
     // Renderizar
     this.view.renderGrilla(area, hoja, mes, ano, datos);

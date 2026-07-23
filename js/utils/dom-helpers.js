@@ -44,19 +44,22 @@ const DomHelpers = (() => {
    * Reconstruye un <select> con nuevas opciones, conservando la selección.
    * @param {HTMLSelectElement} sel       – Elemento select a reconstruir
    * @param {object[]} items             – Array de ítems
-   * @param {string}   placeholder       – Texto del placeholder deshabilitado
+   * @param {string}   placeholder       – Texto del placeholder
    * @param {string}   valKey            – Propiedad a usar como value
    * @param {string}   textKey           – Propiedad a usar como texto visible
+   * @param {boolean}  [disablePlaceholder=true] – Si true, deshabilita el placeholder
    */
-  function reconstruirSelect(sel, items, placeholder, valKey, textKey) {
+  function reconstruirSelect(sel, items, placeholder, valKey, textKey, disablePlaceholder = true) {
     const cur = sel.value;
     while (sel.options.length > 0) sel.remove(0);
 
-    const ph = document.createElement('option');
-    ph.value = '';
-    ph.disabled = true;
-    ph.textContent = placeholder;
-    sel.appendChild(ph);
+    if (placeholder !== null && placeholder !== undefined) {
+      const ph = document.createElement('option');
+      ph.value = '';
+      if (disablePlaceholder) ph.disabled = true;
+      ph.textContent = placeholder;
+      sel.appendChild(ph);
+    }
 
     items.forEach(it => {
       const opt = document.createElement('option');
@@ -68,6 +71,8 @@ const DomHelpers = (() => {
     // Restaurar selección anterior si sigue existiendo
     if (cur && Array.from(sel.options).some(o => o.value === cur)) {
       sel.value = cur;
+    } else {
+      sel.value = '';
     }
   }
 

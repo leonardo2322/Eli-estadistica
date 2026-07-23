@@ -125,6 +125,8 @@ class AppView {
     this.$servId        = document.getElementById('servicio-id');
     this.$servNombre    = document.getElementById('servicio-nombre');
     this.$servFecha     = document.getElementById('servicio-fecha');
+    this.$servArea      = document.getElementById('servicio-area');
+    this.$servHoja      = document.getElementById('servicio-hoja');
     this.$btnSaveServ   = document.getElementById('btn-guardar-servicio');
     this.$btnCancelServ = document.getElementById('btn-cancelar-servicio');
     this.$tbodyServ     = document.getElementById('tabla-servicios-cuerpo');
@@ -134,6 +136,8 @@ class AppView {
     this.$examId        = document.getElementById('examen-id');
     this.$examNombre    = document.getElementById('examen-nombre');
     this.$examValor     = document.getElementById('examen-valor');
+    this.$examArea      = document.getElementById('examen-area');
+    this.$examHoja      = document.getElementById('examen-hoja');
     this.$btnSaveExam   = document.getElementById('btn-guardar-examen');
     this.$btnCancelExam = document.getElementById('btn-cancelar-examen');
     this.$tbodyExam     = document.getElementById('tabla-examenes-cuerpo');
@@ -153,9 +157,10 @@ class AppView {
     this.$btnFinalizarTurno = document.getElementById('btn-finalizar-turno');
 
     // ── Historial ──────────────────────────────────────────────
-    this.$tbodyPac  = document.getElementById('tabla-pacientes-cuerpo');
-    this.$badge     = document.getElementById('badge-total-registros');
-    this.$filtroQ   = document.getElementById('filtro-busqueda');
+    this.$tbodyPac   = document.getElementById('tabla-pacientes-cuerpo');
+    this.$badge      = document.getElementById('badge-total-registros');
+    this.$filtroQ    = document.getElementById('filtro-busqueda');
+    this.$filtroFecha = document.getElementById('filtro-fecha');
     this.$filtroServ = document.getElementById('filtro-servicio');
     this.$filtroExam = document.getElementById('filtro-examen');
     this.$sinResult  = document.getElementById('sin-resultados');
@@ -184,12 +189,42 @@ class AppView {
     this._initNav();
     this._setFechaHoy();
     this._initTableDelegation();
+    this._initMantenimientoSelects();
     this._initFrasesRotativas();
   }
 
   // ════════════════════════════════════════════════════════════
   // INICIALIZACIÓN INTERNA
   // ════════════════════════════════════════════════════════════
+
+  /**
+   * Inicializa la actualización dinámica de las Hojas según el Área seleccionada
+   * en los formularios de Mantenimiento (Servicios y Exámenes).
+   */
+  _initMantenimientoSelects() {
+    const actualizarHojasServ = () => {
+      if (!this.$servArea || !this.$servHoja) return;
+      const areaId = this.$servArea.value;
+      const hojas = typeof getHojasParaArea === 'function' ? getHojasParaArea(areaId) : [];
+      DomHelpers.reconstruirSelect(this.$servHoja, hojas, null, 'id', 'label');
+    };
+
+    const actualizarHojasExam = () => {
+      if (!this.$examArea || !this.$examHoja) return;
+      const areaId = this.$examArea.value;
+      const hojas = typeof getHojasParaArea === 'function' ? getHojasParaArea(areaId) : [];
+      DomHelpers.reconstruirSelect(this.$examHoja, hojas, null, 'id', 'label');
+    };
+
+    if (this.$servArea) {
+      this.$servArea.addEventListener('change', actualizarHojasServ);
+      actualizarHojasServ();
+    }
+    if (this.$examArea) {
+      this.$examArea.addEventListener('change', actualizarHojasExam);
+      actualizarHojasExam();
+    }
+  }
 
   /** Rotación suave de frases cariñosas en el hero banner + soporte para doble clic. */
   _initFrasesRotativas() {
@@ -349,13 +384,18 @@ class AppView {
 
     if (!list.length) {
       this.$tbodyServ.innerHTML =
-        `<tr><td colspan="3" class="text-center text-muted py-3">Sin servicios registrados.</td></tr>`;
+        `<tr><td colspan="4" class="text-center text-muted py-3">Sin servicios registrados.</td></tr>`;
       return;
     }
 
     list.forEach(s => {
+      const areaBadge = getAreaBadgeHTML(s.areaId || 'hematologia');
+      const hojaNom   = getHojaNombre(s.areaId || 'hematologia', s.hojaId || 'hematologia_h1');
+      const hojaBadge = `<span class="badge bg-secondary-subtle text-dark border border-secondary-subtle">${DomHelpers.esc(hojaNom)}</span>`;
+
       this.$tbodyServ.appendChild(DomHelpers.crearFila(`
         <td class="fw-semibold text-teal-dark">${DomHelpers.esc(s.nombre)}</td>
+        <td>${areaBadge} ${hojaBadge}</td>
         <td>${s.fecha}</td>
         <td class="text-end">
           <button class="btn btn-sm btn-outline-teal btn-action-sm me-1"
@@ -367,17 +407,28 @@ class AppView {
   }
 
   fillServForm(s) {
-    this.$servId.value    = s.id;
+    this.$servId.value     = s.id;
     this.$servNombre.value = s.nombre;
     this.$servFecha.value  = s.fecha;
+    if (this.$servArea && s.areaId) {
+      this.$servArea.value = s.areaId;
+      this.$servArea.dispatchEvent(new Event('change'));
+    }
+    if (this.$servHoja && s.hojaId) {
+      this.$servHoja.value = s.hojaId;
+    }
     this.$btnSaveServ.innerHTML = `<i class="bi bi-check-circle me-1"></i>Actualizar`;
     this.$btnCancelServ.classList.remove('d-none');
   }
 
   clearServForm() {
     this.$frmServ.reset();
-    this.$servId.value   = '';
+    this.$servId.value    = '';
     this.$servFecha.value = DateUtils.getHoy();
+    if (this.$servArea) {
+      this.$servArea.value = 'hematologia';
+      this.$servArea.dispatchEvent(new Event('change'));
+    }
     this.$btnSaveServ.innerHTML = `<i class="bi bi-plus-circle me-1"></i>Guardar`;
     this.$btnCancelServ.classList.add('d-none');
   }
@@ -386,7 +437,13 @@ class AppView {
     this.$frmServ.addEventListener('submit', e => {
       e.preventDefault();
       if (!this.$frmServ.checkValidity()) { this.$frmServ.reportValidity(); return; }
-      handler({ id: this.$servId.value || null, nombre: this.$servNombre.value.trim(), fecha: this.$servFecha.value });
+      handler({
+        id: this.$servId.value || null,
+        nombre: this.$servNombre.value.trim(),
+        fecha: this.$servFecha.value,
+        areaId: this.$servArea ? this.$servArea.value : 'hematologia',
+        hojaId: this.$servHoja ? this.$servHoja.value : 'hematologia_h1'
+      });
     });
     this.$btnCancelServ.addEventListener('click', () => this.clearServForm());
   }
@@ -403,13 +460,18 @@ class AppView {
 
     if (!list.length) {
       this.$tbodyExam.innerHTML =
-        `<tr><td colspan="3" class="text-center text-muted py-3">Sin exámenes registrados.</td></tr>`;
+        `<tr><td colspan="4" class="text-center text-muted py-3">Sin exámenes registrados.</td></tr>`;
       return;
     }
 
     list.forEach(e => {
+      const areaBadge = getAreaBadgeHTML(e.areaId || 'hematologia');
+      const hojaNom   = getHojaNombre(e.areaId || 'hematologia', e.hojaId || 'hematologia_h1');
+      const hojaBadge = `<span class="badge bg-secondary-subtle text-dark border border-secondary-subtle">${DomHelpers.esc(hojaNom)}</span>`;
+
       this.$tbodyExam.appendChild(DomHelpers.crearFila(`
         <td class="fw-semibold text-pink-dark">${DomHelpers.esc(e.nombre)}</td>
+        <td>${areaBadge} ${hojaBadge}</td>
         <td class="text-end fw-bold text-teal">${parseFloat(e.valor).toFixed(2)}</td>
         <td class="text-end">
           <button class="btn btn-sm btn-outline-pink btn-action-sm me-1"
@@ -424,6 +486,13 @@ class AppView {
     this.$examId.value     = e.id;
     this.$examNombre.value = e.nombre;
     this.$examValor.value  = e.valor;
+    if (this.$examArea && e.areaId) {
+      this.$examArea.value = e.areaId;
+      this.$examArea.dispatchEvent(new Event('change'));
+    }
+    if (this.$examHoja && e.hojaId) {
+      this.$examHoja.value = e.hojaId;
+    }
     this.$btnSaveExam.innerHTML = `<i class="bi bi-check-circle me-1"></i>Actualizar`;
     this.$btnCancelExam.classList.remove('d-none');
   }
@@ -432,6 +501,10 @@ class AppView {
     this.$frmExam.reset();
     this.$examId.value    = '';
     this.$examValor.value = '5';
+    if (this.$examArea) {
+      this.$examArea.value = 'hematologia';
+      this.$examArea.dispatchEvent(new Event('change'));
+    }
     this.$btnSaveExam.innerHTML = `<i class="bi bi-plus-circle me-1"></i>Guardar`;
     this.$btnCancelExam.classList.add('d-none');
   }
@@ -440,7 +513,13 @@ class AppView {
     this.$frmExam.addEventListener('submit', e => {
       e.preventDefault();
       if (!this.$frmExam.checkValidity()) { this.$frmExam.reportValidity(); return; }
-      handler({ id: this.$examId.value || null, nombre: this.$examNombre.value.trim(), valor: parseFloat(this.$examValor.value) });
+      handler({
+        id: this.$examId.value || null,
+        nombre: this.$examNombre.value.trim(),
+        valor: parseFloat(this.$examValor.value),
+        areaId: this.$examArea ? this.$examArea.value : 'hematologia',
+        hojaId: this.$examHoja ? this.$examHoja.value : 'hematologia_h1'
+      });
     });
     this.$btnCancelExam.addEventListener('click', () => this.clearExamForm());
   }
@@ -465,8 +544,8 @@ class AppView {
       let serviciosFiltrados = servicios;
 
       if (areaSeleccionada) {
-        examenesFiltrados = examenes.filter(e => inferirAreaDeExamen(e.nombre) === areaSeleccionada);
-        serviciosFiltrados = servicios.filter(s => esServicioDeArea(s.nombre, areaSeleccionada));
+        examenesFiltrados = examenes.filter(e => (e.areaId ? e.areaId === areaSeleccionada : inferirAreaDeExamen(e.nombre) === areaSeleccionada));
+        serviciosFiltrados = servicios.filter(s => (s.areaId ? s.areaId === areaSeleccionada : esServicioDeArea(s.nombre, areaSeleccionada)));
       }
 
       DomHelpers.reconstruirSelect(this.$selExamen, examenesFiltrados, 'Seleccione un examen...', 'id', 'nombre');
@@ -485,8 +564,8 @@ class AppView {
 
     const fsv = this.$filtroServ.value;
     const fex = this.$filtroExam.value;
-    DomHelpers.reconstruirSelect(this.$filtroServ, servicios, 'Todos los Servicios', 'id', 'nombre');
-    DomHelpers.reconstruirSelect(this.$filtroExam, examenes,  'Todos los Exámenes',  'id', 'nombre');
+    DomHelpers.reconstruirSelect(this.$filtroServ, servicios, 'Todos los Servicios', 'id', 'nombre', false);
+    DomHelpers.reconstruirSelect(this.$filtroExam, examenes,  'Todos los Exámenes',  'id', 'nombre', false);
     this.$filtroServ.value = fsv;
     this.$filtroExam.value = fex;
 
@@ -602,9 +681,16 @@ class AppView {
   }
 
   bindFiltros(onChange) {
-    [this.$filtroQ, this.$filtroServ, this.$filtroExam].forEach(el =>
+    [this.$filtroQ, this.$filtroFecha, this.$filtroServ, this.$filtroExam].forEach(el => {
+      if (!el) return;
       el.addEventListener(el.tagName === 'SELECT' ? 'change' : 'input',
-        () => onChange({ q: this.$filtroQ.value, servicioId: this.$filtroServ.value, examenId: this.$filtroExam.value })));
+        () => onChange({
+          q: this.$filtroQ.value,
+          fechaFiltro: this.$filtroFecha ? this.$filtroFecha.value : '',
+          servicioId: this.$filtroServ.value,
+          examenId: this.$filtroExam.value
+        }));
+    });
   }
 
   // ════════════════════════════════════════════════════════════

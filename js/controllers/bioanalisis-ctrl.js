@@ -23,7 +23,7 @@ class BioanalisisController {
   constructor(repo, view) {
     this.repo     = repo;
     this.view     = view;
-    this.filtros  = { q: '', servicioId: '', examenId: '' };
+    this.filtros  = { q: '', servicioId: '', examenId: '', fechaFiltro: '' };
     this.fechaRes = DateUtils.getHoy();
   }
 
@@ -168,18 +168,26 @@ class BioanalisisController {
     const examenes  = this.repo.obtenerExamenes();
     let pacs        = this.repo.obtenerPacientes();
 
-    const { q, servicioId, examenId } = this.filtros;
+    const { q, servicioId, examenId, fechaFiltro } = this.filtros;
     if (q.trim()) {
       const qLower = q.toLowerCase();
       pacs = pacs.filter(p => {
         const srv = servicios.find(s => s.id === p.servicioId);
         const ex  = examenes.find(e => e.id === p.examenId);
         return (srv && srv.nombre.toLowerCase().includes(qLower)) ||
-               (ex && ex.nombre.toLowerCase().includes(qLower));
+               (ex && ex.nombre.toLowerCase().includes(qLower)) ||
+               (p.fecha && p.fecha.includes(qLower));
       });
     }
     if (servicioId) pacs = pacs.filter(p => p.servicioId === servicioId);
     if (examenId)   pacs = pacs.filter(p => p.examenId   === examenId);
+
+    if (fechaFiltro === 'hoy') {
+      const hoy = DateUtils.getHoy();
+      pacs = pacs.filter(p => p.fecha === hoy);
+    } else if (fechaFiltro) {
+      pacs = pacs.filter(p => p.fecha === fechaFiltro);
+    }
 
     this.view.renderPacientes(pacs, servicios, examenes,
       p  => this.view.fillPacForm(p),

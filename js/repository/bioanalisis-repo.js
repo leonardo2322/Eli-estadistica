@@ -137,7 +137,7 @@ class BioanalisisRepository {
   // MIGRACIÓN – Normaliza datos de versiones anteriores del app
   // ─────────────────────────────────────────────────────────────
   _migrar() {
-    // Servicios: incorporar claves y sembrar servicios predeterminados faltantes
+    // Servicios: incorporar claves, areaId/hojaId y sembrar servicios predeterminados faltantes
     const hoy = DateUtils.getHoy();
     const srvs = this._get(this.KEYS.SERVICIOS);
     let cambioSrv = false;
@@ -151,6 +151,14 @@ class BioanalisisRepository {
         nuevo.key = inferirServicioKey(nuevo.nombre);
         mod = true;
       }
+      if (!nuevo.areaId) {
+        nuevo.areaId = 'hematologia';
+        mod = true;
+      }
+      if (!nuevo.hojaId) {
+        nuevo.hojaId = 'hematologia_h1';
+        mod = true;
+      }
       if (mod) cambioSrv = true;
       return nuevo;
     });
@@ -161,6 +169,8 @@ class BioanalisisRepository {
           id: `srv-auto-${Date.now()}-${idx}`,
           nombre: item.nombre,
           key: item.key,
+          areaId: 'hematologia',
+          hojaId: 'hematologia_h1',
           fecha: hoy
         });
         cambioSrv = true;
@@ -169,7 +179,7 @@ class BioanalisisRepository {
 
     if (cambioSrv) this._set(this.KEYS.SERVICIOS, srvMig);
 
-    // Exámenes: esquema antiguo usaba valorBase/metodo/valorAumento o no tenía 'key'
+    // Exámenes: esquema antiguo usaba valorBase/metodo/valorAumento o no tenía 'key' / 'areaId' / 'hojaId'
     const exs = this._get(this.KEYS.EXAMENES);
     let cambioEx = false;
     const exMig = exs.map(e => {
@@ -181,6 +191,16 @@ class BioanalisisRepository {
       }
       if (!nuevo.key) {
         nuevo.key = inferirExamenKey(nuevo.nombre);
+        mod = true;
+      }
+      if (!nuevo.areaId) {
+        const infArea = typeof inferirAreaDeExamen === 'function' ? inferirAreaDeExamen(nuevo.nombre) : 'hematologia';
+        nuevo.areaId = (typeof EXAMEN_KEY_MAP !== 'undefined' && EXAMEN_KEY_MAP[nuevo.key]) ? EXAMEN_KEY_MAP[nuevo.key].areaId : infArea;
+        mod = true;
+      }
+      if (!nuevo.hojaId) {
+        const defaultHoja = typeof getHojasParaArea === 'function' && getHojasParaArea(nuevo.areaId)[0] ? getHojasParaArea(nuevo.areaId)[0].id : `${nuevo.areaId}_h1`;
+        nuevo.hojaId = (typeof EXAMEN_KEY_MAP !== 'undefined' && EXAMEN_KEY_MAP[nuevo.key]) ? EXAMEN_KEY_MAP[nuevo.key].hojaId : defaultHoja;
         mod = true;
       }
       if (mod) cambioEx = true;
@@ -227,13 +247,19 @@ class BioanalisisRepository {
   /**
    * Crea o actualiza un servicio.
    * Si s.id está vacío/null, asigna un nuevo id y lo inserta.
-   * @param {{id?: string, nombre: string, fecha: string, key?: string}} s
+   * @param {{id?: string, nombre: string, fecha: string, areaId?: string, hojaId?: string, key?: string}} s
    * @returns {object} – El objeto guardado con id asignado
    */
   guardarServicio(s) {
     if (!s.key) {
       s.key = inferirServicioKey(s.nombre);
     }
+    if (!s.areaId) s.areaId = 'hematologia';
+    if (!s.hojaId) {
+      const hojas = typeof getHojasParaArea === 'function' ? getHojasParaArea(s.areaId) : [];
+      s.hojaId = hojas[0] ? hojas[0].id : `${s.areaId}_h1`;
+    }
+
     const list = this.obtenerServicios();
     if (s.id) {
       const i = list.findIndex(x => x.id === s.id);
@@ -272,7 +298,7 @@ class BioanalisisRepository {
 
   /**
    * Crea o actualiza un examen.
-   * @param {{id?: string, nombre: string, valor: number}} e
+   * @param {{id?: string, nombre: string, valor: number, areaId?: string, hojaId?: string}} e
    * @returns {object}
    */
   guardarExamen(e) {
@@ -280,6 +306,19 @@ class BioanalisisRepository {
     if (!e.key) {
       e.key = inferirExamenKey(e.nombre);
     }
+    if (!e.areaId) {
+      e.areaId = typeof inferirAreaDeExamen === 'function' ? inferirAreaDeExamen(e.nombre) : 'hematologia';
+    }
+    if (!e.hojaId) {
+      const config = typeof EXAMEN_KEY_MAP !== 'undefined' ? EXAMEN_KEY_MAP[e.key] : null;
+      if (config && config.hojaId) {
+        e.hojaId = config.hojaId;
+      } else {
+        const hojas = typeof getHojasParaArea === 'function' ? getHojasParaArea(e.areaId) : [];
+        e.hojaId = hojas[0] ? hojas[0].id : `${e.areaId}_h1`;
+      }
+    }
+
     const list = this.obtenerExamenes();
     if (e.id) {
       const i = list.findIndex(x => x.id === e.id);

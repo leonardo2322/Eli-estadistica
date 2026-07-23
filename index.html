@@ -250,6 +250,24 @@
                       <label for="servicio-fecha" class="form-label fw-semibold text-teal-dark">Fecha</label>
                       <input type="date" class="form-control input-custom" id="servicio-fecha" required>
                     </div>
+                    <div class="col-md-6">
+                      <label for="servicio-area" class="form-label fw-semibold text-teal-dark">
+                        <i class="bi bi-diagram-3-fill me-1"></i>Área del Laboratorio
+                      </label>
+                      <select class="form-select input-custom" id="servicio-area" required>
+                        <option value="hematologia" selected>🩸 HEMATOLOGÍA COMPLETA</option>
+                        <option value="uroanalisis">🧪 UROANÁLISIS</option>
+                        <option value="coproanalisis">💩 COPROANÁLISIS</option>
+                        <option value="serologia">🔬 SEROLOGÍA / QUÍMICA</option>
+                      </select>
+                    </div>
+                    <div class="col-md-6">
+                      <label for="servicio-hoja" class="form-label fw-semibold text-teal-dark">
+                        <i class="bi bi-file-earmark-spreadsheet me-1"></i>Hoja del Formato
+                      </label>
+                      <select class="form-select input-custom" id="servicio-hoja" required>
+                      </select>
+                    </div>
                   </div>
                   <div class="mt-3 d-flex gap-2">
                     <button type="submit" id="btn-guardar-servicio" class="btn btn-teal-action flex-grow-1 py-2">
@@ -261,7 +279,7 @@
                 <div class="table-responsive" style="max-height:260px;overflow-y:auto;">
                   <table class="table table-hover align-middle">
                     <thead class="table-light sticky-top">
-                      <tr><th>Nombre</th><th>Fecha</th><th class="text-end">Acciones</th></tr>
+                      <tr><th>Nombre</th><th>Área / Hoja</th><th>Fecha</th><th class="text-end">Acciones</th></tr>
                     </thead>
                     <tbody id="tabla-servicios-cuerpo"></tbody>
                   </table>
@@ -280,13 +298,31 @@
                 <form id="form-examen" class="mb-3" novalidate>
                   <input type="hidden" id="examen-id">
                   <div class="row g-3">
-                    <div class="col-8">
+                    <div class="col-md-8">
                       <label for="examen-nombre" class="form-label fw-semibold text-pink-dark">Nombre del Examen</label>
                       <input type="text" class="form-control input-custom" id="examen-nombre" placeholder="Ej. Orina, Heces, Glicemia" required>
                     </div>
-                    <div class="col-4">
+                    <div class="col-md-4">
                       <label for="examen-valor" class="form-label fw-semibold text-pink-dark">Valor</label>
                       <input type="number" step="any" min="0" class="form-control input-custom" id="examen-valor" value="5" required>
+                    </div>
+                    <div class="col-md-6">
+                      <label for="examen-area" class="form-label fw-semibold text-pink-dark">
+                        <i class="bi bi-diagram-3-fill me-1"></i>Área del Laboratorio
+                      </label>
+                      <select class="form-select input-custom" id="examen-area" required>
+                        <option value="hematologia" selected>🩸 HEMATOLOGÍA COMPLETA</option>
+                        <option value="uroanalisis">🧪 UROANÁLISIS</option>
+                        <option value="coproanalisis">💩 COPROANÁLISIS</option>
+                        <option value="serologia">🔬 SEROLOGÍA / QUÍMICA</option>
+                      </select>
+                    </div>
+                    <div class="col-md-6">
+                      <label for="examen-hoja" class="form-label fw-semibold text-pink-dark">
+                        <i class="bi bi-file-earmark-spreadsheet me-1"></i>Hoja del Formato
+                      </label>
+                      <select class="form-select input-custom" id="examen-hoja" required>
+                      </select>
                     </div>
                   </div>
                   <div class="mt-3 d-flex gap-2">
@@ -299,7 +335,7 @@
                 <div class="table-responsive" style="max-height:260px;overflow-y:auto;">
                   <table class="table table-hover align-middle">
                     <thead class="table-light sticky-top">
-                      <tr><th>Nombre del Examen</th><th class="text-end">Valor</th><th class="text-end">Acciones</th></tr>
+                      <tr><th>Nombre del Examen</th><th>Área / Hoja</th><th class="text-end">Valor</th><th class="text-end">Acciones</th></tr>
                     </thead>
                     <tbody id="tabla-examenes-cuerpo"></tbody>
                   </table>
@@ -399,18 +435,24 @@
               </div>
               <div class="card-body">
                 <div class="row g-2 mb-3 p-2 bg-light rounded border">
-                  <div class="col-12 col-md-5">
+                  <div class="col-12 col-md-4">
                     <div class="input-group">
                       <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
                       <input type="text" class="form-control border-start-0 input-custom" id="filtro-busqueda" placeholder="Buscar registro...">
                     </div>
+                  </div>
+                  <div class="col-6 col-md-2">
+                    <select class="form-select input-custom" id="filtro-fecha">
+                      <option value="" selected>Todas las Fechas</option>
+                      <option value="hoy">📅 Hoy</option>
+                    </select>
                   </div>
                   <div class="col-6 col-md-3">
                     <select class="form-select input-custom" id="filtro-servicio">
                       <option value="">Todos los Servicios</option>
                     </select>
                   </div>
-                  <div class="col-6 col-md-4">
+                  <div class="col-12 col-md-3">
                     <select class="form-select input-custom" id="filtro-examen">
                       <option value="">Todos los Exámenes</option>
                     </select>
