@@ -544,8 +544,8 @@ class AppView {
       let serviciosFiltrados = servicios;
 
       if (areaSeleccionada) {
-        examenesFiltrados = examenes.filter(e => (e.areaId ? e.areaId === areaSeleccionada : inferirAreaDeExamen(e.nombre) === areaSeleccionada));
-        serviciosFiltrados = servicios.filter(s => (s.areaId ? s.areaId === areaSeleccionada : esServicioDeArea(s.nombre, areaSeleccionada)));
+        examenesFiltrados = examenes.filter(e => (e.areaId === areaSeleccionada || inferirAreaDeExamen(e.nombre) === areaSeleccionada));
+        serviciosFiltrados = servicios.filter(s => (s.areaId === areaSeleccionada || esServicioDeArea(s.nombre, areaSeleccionada)));
       }
 
       DomHelpers.reconstruirSelect(this.$selExamen, examenesFiltrados, 'Seleccione un examen...', 'id', 'nombre');
