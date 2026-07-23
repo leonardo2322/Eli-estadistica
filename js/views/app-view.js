@@ -681,15 +681,17 @@ class AppView {
   }
 
   bindFiltros(onChange) {
-    [this.$filtroQ, this.$filtroFecha, this.$filtroServ, this.$filtroExam].forEach(el => {
+    const arr = [this.$filtroQ, this.$filtroFecha, this.$filtroServ, this.$filtroExam];
+    arr.forEach(el => {
       if (!el) return;
-      el.addEventListener(el.tagName === 'SELECT' ? 'change' : 'input',
-        () => onChange({
-          q: this.$filtroQ.value,
-          fechaFiltro: this.$filtroFecha ? this.$filtroFecha.value : '',
-          servicioId: this.$filtroServ.value,
-          examenId: this.$filtroExam.value
-        }));
+      const fire = () => onChange({
+        q: this.$filtroQ ? this.$filtroQ.value : '',
+        fechaFiltro: this.$filtroFecha ? this.$filtroFecha.value : '',
+        servicioId: this.$filtroServ ? this.$filtroServ.value : '',
+        examenId: this.$filtroExam ? this.$filtroExam.value : ''
+      });
+      el.addEventListener('change', fire);
+      el.addEventListener('input', fire);
     });
   }
 
