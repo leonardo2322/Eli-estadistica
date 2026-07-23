@@ -116,6 +116,62 @@ class FirebaseRepository {
   }
 
   /**
+   * Guarda o actualiza un servicio en Cloud Firestore.
+   */
+  async guardarServicio(servicio) {
+    if (!db || !servicio.id) return false;
+    try {
+      await db.collection(this.COLLECTIONS.SERVICIOS).doc(servicio.id).set(servicio, { merge: true });
+      return true;
+    } catch (error) {
+      console.error('Error al guardar servicio en Firestore:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Elimina un servicio de Cloud Firestore.
+   */
+  async eliminarServicio(id) {
+    if (!db || !id) return false;
+    try {
+      await db.collection(this.COLLECTIONS.SERVICIOS).doc(id).delete();
+      return true;
+    } catch (error) {
+      console.error('Error al eliminar servicio en Firestore:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Guarda o actualiza un examen en Cloud Firestore.
+   */
+  async guardarExamen(examen) {
+    if (!db || !examen.id) return false;
+    try {
+      await db.collection(this.COLLECTIONS.EXAMENES).doc(examen.id).set(examen, { merge: true });
+      return true;
+    } catch (error) {
+      console.error('Error al guardar examen en Firestore:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Elimina un examen de Cloud Firestore.
+   */
+  async eliminarExamen(id) {
+    if (!db || !id) return false;
+    try {
+      await db.collection(this.COLLECTIONS.EXAMENES).doc(id).delete();
+      return true;
+    } catch (error) {
+      console.error('Error al eliminar examen en Firestore:', error);
+      return false;
+    }
+  }
+
+  /**
    * Escucha cambios en tiempo real en la colección de pacientes.
    * @param {Function} callback Callback que recibe el listado actualizado de pacientes.
    * @returns {Function} Función para cancelar la suscripción.

@@ -220,6 +220,10 @@ class BioanalisisRepository {
   /** Retorna todos los servicios. */
   obtenerServicios() { return this._get(this.KEYS.SERVICIOS); }
 
+  setFirebaseRepository(fbRepo) {
+    this.firebaseRepo = fbRepo;
+  }
+
   /**
    * Crea o actualiza un servicio.
    * Si s.id está vacío/null, asigna un nuevo id y lo inserta.
@@ -239,6 +243,10 @@ class BioanalisisRepository {
       list.push(s);
     }
     this._set(this.KEYS.SERVICIOS, list);
+
+    if (this.firebaseRepo) {
+      this.firebaseRepo.guardarServicio(s);
+    }
     return s;
   }
 
@@ -249,6 +257,10 @@ class BioanalisisRepository {
   eliminarServicio(id) {
     this._set(this.KEYS.SERVICIOS,
       this.obtenerServicios().filter(s => s.id !== id));
+
+    if (this.firebaseRepo) {
+      this.firebaseRepo.eliminarServicio(id);
+    }
   }
 
   // ─────────────────────────────────────────────────────────────
@@ -277,6 +289,10 @@ class BioanalisisRepository {
       list.push(e);
     }
     this._set(this.KEYS.EXAMENES, list);
+
+    if (this.firebaseRepo) {
+      this.firebaseRepo.guardarExamen(e);
+    }
     return e;
   }
 
@@ -287,6 +303,10 @@ class BioanalisisRepository {
   eliminarExamen(id) {
     this._set(this.KEYS.EXAMENES,
       this.obtenerExamenes().filter(e => e.id !== id));
+
+    if (this.firebaseRepo) {
+      this.firebaseRepo.eliminarExamen(id);
+    }
   }
 
   // ─────────────────────────────────────────────────────────────
@@ -321,6 +341,10 @@ class BioanalisisRepository {
       list.push(p);
     }
     this._set(this.KEYS.PACIENTES, list);
+
+    if (this.firebaseRepo) {
+      this.firebaseRepo.guardarPaciente(p);
+    }
     return p;
   }
 
@@ -331,5 +355,9 @@ class BioanalisisRepository {
   eliminarPaciente(id) {
     this._set(this.KEYS.PACIENTES,
       this.obtenerPacientes().filter(p => p.id !== id));
+
+    if (this.firebaseRepo) {
+      this.firebaseRepo.eliminarPaciente(id);
+    }
   }
 }

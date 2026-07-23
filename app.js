@@ -41,11 +41,21 @@ document.addEventListener('DOMContentLoaded', () => {
   const bioCtrl      = new BioanalisisController(bioRepo, appView);
   const formatosCtrl = new FormatosController(formatosRepo, formatosView);
 
+  // ── Vincular Firebase con el Repositorio de Bioanálisis ─────
+  bioRepo.setFirebaseRepository(firebaseRepo);
+
   // ── Arranque: el login notifica cuando el usuario entra ─────
   loginView.bind(() => {
     appView.mostrar();
     bioCtrl.init();
     formatosCtrl.init();
+
+    // Sincronizar automáticamente datos locales a Cloud Firestore en segundo plano
+    firebaseRepo.sincronizarLocalStorageAFirestore(bioRepo).then(res => {
+      if (res.ok) {
+        console.log(`🔥 Cloud Firestore: ${res.mensaje}`);
+      }
+    });
 
     // Conectar los controladores: el Resumen del Día es la base central para los Formatos
     const sincronizarFecha = (fecha) => {
