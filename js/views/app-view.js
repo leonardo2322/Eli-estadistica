@@ -31,6 +31,45 @@ const FRASES_ELIANA = [
   '"Con amor, ciencia y entrega impecable, haces que cada día de trabajo se convierta en una obra maestra. ¡Orgullosos de ti!"'
 ];
 
+function inferirAreaDeExamen(nombre) {
+  const norm = (nombre || '').toLowerCase().trim();
+
+  const HEMATOLOGIA = [
+    'hematología', 'hemoglobina', 'hematocrito', 'plaquetas', 
+    'diferencial', 'contaje de b', 'vsg', 'gota gruesa', 'frotis'
+  ];
+
+  const UROANALISIS = [
+    'orina', 'glucosa', 'proteínas', 'sedimentos', 'p.h', 
+    'densidad', 'pigmentos biliares'
+  ];
+
+  const COPROANALISIS = [
+    'heces', 'directos sol-sal', 'directos sol-lugol', 'kato', 'sangre oculta',
+    'ascaris', 'ancylostoma', 'trichuris', 'enterobius', 'hymenolepis', 
+    'entamoeba', 'strongyloides', 'balantidium', 'yodamoeba', 'endolimax', 
+    'giardia', 'tricomonas', 'chilomastix', 'blastocystis', 'taenia', 'levaduras'
+  ];
+
+  if (HEMATOLOGIA.some(k => norm.includes(k))) return 'hematologia';
+  if (UROANALISIS.some(k => norm.includes(k))) return 'uroanalisis';
+  if (COPROANALISIS.some(k => norm.includes(k))) return 'coproanalisis';
+  return 'serologia';
+}
+
+function getAreaBadgeHTML(areaId) {
+  switch (areaId) {
+    case 'hematologia':
+      return `<span class="badge bg-danger-subtle text-danger border border-danger-subtle me-1">🩸 Hematología</span>`;
+    case 'uroanalisis':
+      return `<span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle me-1">🧪 Uroanálisis</span>`;
+    case 'coproanalisis':
+      return `<span class="badge bg-primary-subtle text-primary border border-primary-subtle me-1">💩 Coproanálisis</span>`;
+    default:
+      return `<span class="badge bg-info-subtle text-info-emphasis border border-info-subtle me-1">🔬 Serología/Química</span>`;
+  }
+}
+
 class AppView {
 
   constructor() {
@@ -66,6 +105,7 @@ class AppView {
     this.$frmPac          = document.getElementById('form-paciente');
     this.$pacId           = document.getElementById('paciente-registro-id');
     this.$pacFecha        = document.getElementById('paciente-fecha');
+    this.$selArea         = document.getElementById('paciente-area');
     this.$selServicio     = document.getElementById('paciente-servicio');
     this.$selExamen       = document.getElementById('paciente-examen');
     this.$pacCantidad     = document.getElementById('paciente-cantidad');
@@ -372,11 +412,36 @@ class AppView {
   // SELECTS + CÁLCULO EN TIEMPO REAL
   // ════════════════════════════════════════════════════════════
 
+  // ════════════════════════════════════════════════════════════
+  // SELECTS + CÁLCULO EN TIEMPO REAL
+  // ════════════════════════════════════════════════════════════
+
   actualizarSelects(servicios, examenes) {
     this._examenes = examenes;
+    this._servicios = servicios;
 
     DomHelpers.reconstruirSelect(this.$selServicio, servicios, 'Seleccione un servicio...', 'id', 'nombre');
-    DomHelpers.reconstruirSelect(this.$selExamen,   examenes,  'Seleccione un examen...',   'id', 'nombre');
+
+    const filtrarExamenesPorArea = () => {
+      const areaSeleccionada = this.$selArea ? this.$selArea.value : '';
+      let examenesFiltrados = examenes;
+
+      if (areaSeleccionada) {
+        examenesFiltrados = examenes.filter(e => inferirAreaDeExamen(e.nombre) === areaSeleccionada);
+      }
+
+      DomHelpers.reconstruirSelect(this.$selExamen, examenesFiltrados, 'Seleccione un examen...', 'id', 'nombre');
+      if (this._calcFn) this._calcFn();
+    };
+
+    if (this.$selArea && !this._boundAreaChange) {
+      this.$selArea.addEventListener('change', () => {
+        filtrarExamenesPorArea();
+      });
+      this._boundAreaChange = true;
+    }
+
+    filtrarExamenesPorArea();
 
     const fsv = this.$filtroServ.value;
     const fex = this.$filtroExam.value;
@@ -422,10 +487,13 @@ class AppView {
     list.forEach(p => {
       const serv = servicios.find(s => s.id === p.servicioId) || { nombre: '—' };
       const exam = examenes.find(e  => e.id === p.examenId)  || { nombre: '—' };
+      const areaId = inferirAreaDeExamen(exam.nombre);
+      const areaBadge = getAreaBadgeHTML(areaId);
+
       this.$tbodyPac.appendChild(DomHelpers.crearFila(`
         <td class="text-nowrap">${p.fecha}</td>
         <td><span class="badge bg-soft-teal">${DomHelpers.esc(serv.nombre)}</span></td>
-        <td><span class="badge bg-soft-pink">${DomHelpers.esc(exam.nombre)}</span></td>
+        <td>${areaBadge} <span class="badge bg-soft-pink">${DomHelpers.esc(exam.nombre)}</span></td>
         <td class="text-center fw-bold">${p.cantidad}</td>
         <td class="text-end fw-bold text-teal">${parseFloat(p.total).toFixed(2)}</td>
         <td class="text-end text-nowrap">
@@ -441,6 +509,13 @@ class AppView {
     this.$pacId.value        = p.id;
     this.$pacFecha.value     = p.fecha;
     this.$selServicio.value  = p.servicioId;
+
+    const exam = (this._examenes || []).find(e => e.id === p.examenId);
+    if (exam && this.$selArea) {
+      this.$selArea.value = inferirAreaDeExamen(exam.nombre);
+      this.actualizarSelects(this._servicios || [], this._examenes || []);
+    }
+
     this.$selExamen.value    = p.examenId;
     this.$pacCantidad.value  = p.cantidad;
     this.$pacTotal.value     = parseFloat(p.total).toFixed(2);
@@ -453,6 +528,10 @@ class AppView {
     this.$frmPac.reset();
     this.$pacId.value       = '';
     this.$pacFecha.value    = DateUtils.getHoy();
+    if (this.$selArea) {
+      this.$selArea.value = '';
+    }
+    this.actualizarSelects(this._servicios || [], this._examenes || []);
     this.$pacCantidad.value = '1';
     this.$pacTotal.value    = '0.00';
     this.$tituloPacForm.innerHTML = `<i class="bi bi-file-medical-fill me-2"></i>Registrar Atención / Examen`;

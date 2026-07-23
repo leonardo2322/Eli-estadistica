@@ -333,6 +333,19 @@
                   </div>
 
                   <div class="mb-3">
+                    <label for="paciente-area" class="form-label fw-semibold text-teal-dark">
+                      <i class="bi bi-diagram-3-fill me-1"></i>Área del Laboratorio (Sección)
+                    </label>
+                    <select class="form-select input-custom" id="paciente-area">
+                      <option value="" selected>Todas las Áreas</option>
+                      <option value="hematologia">🩸 HEMATOLOGÍA COMPLETA</option>
+                      <option value="uroanalisis">🧪 UROANÁLISIS</option>
+                      <option value="coproanalisis">💩 COPROANÁLISIS</option>
+                      <option value="serologia">🔬 SEROLOGÍA / QUÍMICA</option>
+                    </select>
+                  </div>
+
+                  <div class="mb-3">
                     <label for="paciente-servicio" class="form-label fw-semibold text-teal-dark">Servicio de Atención</label>
                     <select class="form-select input-custom" id="paciente-servicio" required>
                       <option value="" disabled selected>Seleccione un servicio...</option>
