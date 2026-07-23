@@ -31,6 +31,17 @@ const FRASES_ELIANA = [
   '"Con amor, ciencia y entrega impecable, haces que cada día de trabajo se convierta en una obra maestra. ¡Orgullosos de ti!"'
 ];
 
+function esServicioDeArea(nombreServicio, areaId) {
+  if (!areaId) return true;
+  const norm = (nombreServicio || '').toLowerCase().trim();
+
+  // 'Prenatal' es un servicio específico de Uroanálisis en las planillas oficiales
+  if (norm.includes('prenatal') && areaId !== 'uroanalisis') {
+    return false;
+  }
+  return true;
+}
+
 function inferirAreaDeExamen(nombre) {
   const norm = (nombre || '').toLowerCase().trim();
 
@@ -422,26 +433,29 @@ class AppView {
 
     DomHelpers.reconstruirSelect(this.$selServicio, servicios, 'Seleccione un servicio...', 'id', 'nombre');
 
-    const filtrarExamenesPorArea = () => {
+    const filtrarOpcionesPorArea = () => {
       const areaSeleccionada = this.$selArea ? this.$selArea.value : '';
       let examenesFiltrados = examenes;
+      let serviciosFiltrados = servicios;
 
       if (areaSeleccionada) {
         examenesFiltrados = examenes.filter(e => inferirAreaDeExamen(e.nombre) === areaSeleccionada);
+        serviciosFiltrados = servicios.filter(s => esServicioDeArea(s.nombre, areaSeleccionada));
       }
 
       DomHelpers.reconstruirSelect(this.$selExamen, examenesFiltrados, 'Seleccione un examen...', 'id', 'nombre');
+      DomHelpers.reconstruirSelect(this.$selServicio, serviciosFiltrados, 'Seleccione un servicio...', 'id', 'nombre');
       if (this._calcFn) this._calcFn();
     };
 
     if (this.$selArea && !this._boundAreaChange) {
       this.$selArea.addEventListener('change', () => {
-        filtrarExamenesPorArea();
+        filtrarOpcionesPorArea();
       });
       this._boundAreaChange = true;
     }
 
-    filtrarExamenesPorArea();
+    filtrarOpcionesPorArea();
 
     const fsv = this.$filtroServ.value;
     const fex = this.$filtroExam.value;
