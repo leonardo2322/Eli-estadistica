@@ -1437,3 +1437,64 @@ td:hover .cell-fill-handle,
   to   { transform: translate(-50%, 0); opacity: 1; }
 }
 
+/* --- ESTILOS PARA MODO SELECCIÓN / RELLENO POR DOBLE TAP & TOUCH --- */
+
+/* Bloqueo de Scroll en el contenedor mientras se desliza con el dedo */
+.grilla-scroll-wrap.scroll-locked {
+  overflow: hidden !important;
+  touch-action: none !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+}
+
+/* Celda Marcada por Doble Tap */
+.inp-celda.celda-marcada {
+  background-color: rgba(13, 148, 136, 0.22) !important;
+  outline: 2.5px solid var(--teal) !important;
+  outline-offset: -1px;
+  box-shadow: 0 0 10px rgba(13, 148, 136, 0.5) !important;
+  animation: pulseCeldaMarcada 1.5s infinite ease-in-out;
+  z-index: 5 !important;
+}
+
+@keyframes pulseCeldaMarcada {
+  0% { box-shadow: 0 0 4px rgba(13, 148, 136, 0.4); }
+  50% { box-shadow: 0 0 12px rgba(13, 148, 136, 0.85); }
+  100% { box-shadow: 0 0 4px rgba(13, 148, 136, 0.4); }
+}
+
+/* Banner Flotante Indicador de Modo Relleno */
+.fmt-banner-relleno {
+  position: sticky;
+  top: 10px;
+  z-index: 1040;
+  margin: 10px auto;
+  max-width: 650px;
+  background: linear-gradient(135deg, #0f766e, #0d9488);
+  color: white;
+  border-radius: 50px;
+  box-shadow: 0 6px 20px rgba(13, 148, 136, 0.35);
+  animation: bannerIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes bannerIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Adaptación táctil de la manija en teléfonos */
+@media (max-width: 768px), (hover: none) and (pointer: coarse) {
+  .cell-fill-handle {
+    display: block !important;
+    width: 16px;
+    height: 16px;
+    background-color: var(--teal);
+    border: 2px solid #ffffff;
+    border-radius: 4px;
+    bottom: 0px;
+    right: 0px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+  }
+}
+
+

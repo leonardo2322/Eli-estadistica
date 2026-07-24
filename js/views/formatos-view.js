@@ -283,6 +283,18 @@ class FormatosView {
         </div>
       </div>
 
+      <!-- Banner Indicador de Modo Relleno Táctil / Doble Tap -->
+      <div id="fmt-banner-modo-relleno" class="fmt-banner-relleno d-none">
+        <div class="d-flex align-items-center justify-content-between gap-2 px-3 py-2">
+          <span class="small fw-semibold text-white me-1" id="lbl-banner-modo-relleno">
+            ✨ <strong>Modo Copia:</strong> Toca la celda destino o arrastra con el dedo para rellenar.
+          </span>
+          <button id="btn-cancelar-modo-relleno" type="button" class="btn btn-sm btn-light text-dark fw-bold py-0 px-2 rounded-pill shadow-sm" style="font-size: 0.8rem;">
+            <i class="bi bi-x-circle-fill me-1 text-danger"></i>Cancelar
+          </button>
+        </div>
+      </div>
+
       <div class="grilla-scroll-wrap">
         <table class="tabla-formato" id="tabla-grilla-principal">
           <thead>
@@ -549,10 +561,15 @@ class FormatosView {
   }
 
   /**
-   * Inicializa la manija de copiado tipo Excel (Fill Handle) para arrastrar y copiar celdas.
+   * Inicializa la manija de copiado tipo Excel (Fill Handle) y el modo de selección táctil (Doble Tap / Touch Drag).
    */
   _initFillHandleEvents(dias, datosInicio) {
     const tabla = document.getElementById('tabla-grilla-principal');
+    const scrollWrap = tabla?.closest('.grilla-scroll-wrap');
+    const bannerRelleno = document.getElementById('fmt-banner-modo-relleno');
+    const btnCancelarBanner = document.getElementById('btn-cancelar-modo-relleno');
+    const lblBanner = document.getElementById('lbl-banner-modo-relleno');
+
     if (!tabla) return;
 
     let isDragging = false;
@@ -561,26 +578,166 @@ class FormatosView {
     let startVal = 0;
     let draggedInputs = [];
 
+    // Estado para Doble Tap / Modo Selección Táctil
+    let markedCell = null; // { filaId, dia, val, inp }
+    let lastTapTime = 0;
+    let lastTapInp = null;
+
     const clearHighlights = () => {
       draggedInputs.forEach(inp => inp.classList.remove('cell-fill-dragged'));
       draggedInputs = [];
     };
 
+    const desmarcarModoRelleno = () => {
+      if (markedCell && markedCell.inp) {
+        markedCell.inp.classList.remove('celda-marcada');
+      }
+      markedCell = null;
+      clearHighlights();
+      scrollWrap?.classList.remove('scroll-locked');
+      if (bannerRelleno) bannerRelleno.classList.add('d-none');
+    };
+
+    const activarModoRelleno = (inp) => {
+      desmarcarModoRelleno();
+      const filaId = inp.dataset.fila;
+      const dia = Number(inp.dataset.dia);
+      const val = parseInt(inp.value) || 0;
+
+      markedCell = { filaId, dia, val, inp };
+      inp.classList.add('celda-marcada');
+
+      if (bannerRelleno) {
+        bannerRelleno.classList.remove('d-none');
+        if (lblBanner) {
+          lblBanner.innerHTML = `✨ <strong>Celda Marcada (Día ${dia} = ${val}):</strong> Toca la celda destino o arrastra con el dedo para rellenar.`;
+        }
+      }
+      DomHelpers.mostrarToast(`Celda marcada. Toca la celda destino o arrastra para copiar el valor ${val}.`, 'info');
+    };
+
+    if (btnCancelarBanner) {
+      btnCancelarBanner.onclick = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        desmarcarModoRelleno();
+      };
+    }
+
+    // --- Obtener rango de celdas entre inicio y destino ---
+    const obtenerRangoCeldas = (fromFilaId, fromDia, toFilaId, toDia) => {
+      const celdas = [];
+      const minDia = Math.min(fromDia, toDia);
+      const maxDia = Math.max(fromDia, toDia);
+
+      if (fromFilaId === toFilaId) {
+        for (let d = minDia; d <= maxDia; d++) {
+          const inp = tabla.querySelector(`input.inp-celda[data-fila="${fromFilaId}"][data-dia="${d}"]`);
+          if (inp) celdas.push(inp);
+        }
+      } else {
+        const filas = Array.from(tabla.querySelectorAll('tr.fila-dato')).map(tr => tr.dataset.filaId);
+        const idxStart = filas.indexOf(fromFilaId);
+        const idxEnd = filas.indexOf(toFilaId);
+
+        if (idxStart !== -1 && idxEnd !== -1) {
+          const minIdx = Math.min(idxStart, idxEnd);
+          const maxIdx = Math.max(idxStart, idxEnd);
+
+          for (let f = minIdx; f <= maxIdx; f++) {
+            const currentFila = filas[f];
+            for (let d = minDia; d <= maxDia; d++) {
+              const inp = tabla.querySelector(`input.inp-celda[data-fila="${currentFila}"][data-dia="${d}"]`);
+              if (inp) celdas.push(inp);
+            }
+          }
+        }
+      }
+      return celdas;
+    };
+
+    // --- Aplicar valor a celdas ---
+    const rellenarCeldas = (targetInps, valor) => {
+      if (!targetInps || targetInps.length === 0) return;
+      targetInps.forEach(inp => {
+        inp.value = valor || '';
+        inp.dispatchEvent(new Event('input', { bubbles: true }));
+      });
+    };
+
+    // ──────────────────────────────────────────────────────────
+    // 1. INICIAR ARRASTRE (MOUSE O TOUCH EN MANIJA)
+    // ──────────────────────────────────────────────────────────
+
+    const iniciarArrastre = (filaId, dia) => {
+      startFilaId = filaId;
+      startDia = Number(dia);
+      const sourceInp = tabla.querySelector(`input.inp-celda[data-fila="${startFilaId}"][data-dia="${startDia}"]`);
+      startVal = sourceInp ? (parseInt(sourceInp.value) || 0) : 0;
+      isDragging = true;
+
+      // En móviles, bloquear el scroll del contenedor mientras arrastra
+      if (scrollWrap) scrollWrap.classList.add('scroll-locked');
+    };
+
+    // Mousedown en manija
     tabla.addEventListener('mousedown', e => {
       const handle = e.target.closest('.cell-fill-handle');
       if (!handle) return;
       e.preventDefault();
-
-      startFilaId = handle.dataset.fila;
-      startDia = Number(handle.dataset.dia);
-
-      const sourceInp = tabla.querySelector(`input.inp-celda[data-fila="${startFilaId}"][data-dia="${startDia}"]`);
-      startVal = sourceInp ? (parseInt(sourceInp.value) || 0) : 0;
-      isDragging = true;
+      iniciarArrastre(handle.dataset.fila, handle.dataset.dia);
     });
+
+    // Touchstart en manija o celda
+    tabla.addEventListener('touchstart', e => {
+      const handle = e.target.closest('.cell-fill-handle');
+      if (handle) {
+        if (e.cancelable) e.preventDefault();
+        iniciarArrastre(handle.dataset.fila, handle.dataset.dia);
+      }
+    }, { passive: false });
+
+    // ──────────────────────────────────────────────────────────
+    // 2. DETECCIÓN DE DOBLE TAP Y CLICK EN CELDAS DESTINO
+    // ──────────────────────────────────────────────────────────
+
+    tabla.addEventListener('click', e => {
+      const inp = e.target.closest('.inp-celda');
+      if (!inp) return;
+
+      const now = Date.now();
+      const isDoubleTap = (lastTapInp === inp) && (now - lastTapTime < 450);
+      lastTapTime = now;
+      lastTapInp = inp;
+
+      if (isDoubleTap) {
+        activarModoRelleno(inp);
+        return;
+      }
+
+      // Si el Modo Relleno está activo y se toca OTRA celda diferente:
+      if (markedCell && markedCell.inp !== inp) {
+        const targetFilaId = inp.dataset.fila;
+        const targetDia = Number(inp.dataset.dia);
+
+        const celdasAfectadas = obtenerRangoCeldas(markedCell.filaId, markedCell.dia, targetFilaId, targetDia);
+        rellenarCeldas(celdasAfectadas, markedCell.val);
+
+        DomHelpers.mostrarToast(`Se rellenaron ${celdasAfectadas.length} celdas con el valor ${markedCell.val}.`, 'success');
+        desmarcarModoRelleno();
+      }
+    });
+
+    // ──────────────────────────────────────────────────────────
+    // 3. MOVIMIENTO (DRAG/DESLIZAR CON DEDO O RATÓN)
+    // ──────────────────────────────────────────────────────────
 
     const onMove = e => {
       if (!isDragging) return;
+      if (e.touches && e.cancelable) {
+        e.preventDefault(); // Prevenir scroll en Android mientras se desliza la manija
+      }
+
       const clientX = e.touches ? e.touches[0].clientX : e.clientX;
       const clientY = e.touches ? e.touches[0].clientY : e.clientY;
       const targetEl = document.elementFromPoint(clientX, clientY);
@@ -593,59 +750,31 @@ class FormatosView {
       const targetDia = Number(targetInp.dataset.dia);
 
       clearHighlights();
-
-      // Determinar rango de días (horizontal) o filas (vertical)
-      const minDia = Math.min(startDia, targetDia);
-      const maxDia = Math.max(startDia, targetDia);
-
-      if (startFilaId === targetFilaId) {
-        for (let d = minDia; d <= maxDia; d++) {
-          const inp = tabla.querySelector(`input.inp-celda[data-fila="${startFilaId}"][data-dia="${d}"]`);
-          if (inp) {
-            inp.classList.add('cell-fill-dragged');
-            draggedInputs.push(inp);
-          }
-        }
-      } else {
-        const filas = Array.from(tabla.querySelectorAll('tr.fila-dato')).map(tr => tr.dataset.filaId);
-        const idxStart = filas.indexOf(startFilaId);
-        const idxEnd = filas.indexOf(targetFilaId);
-
-        if (idxStart !== -1 && idxEnd !== -1) {
-          const minIdx = Math.min(idxStart, idxEnd);
-          const maxIdx = Math.max(idxStart, idxEnd);
-
-          for (let f = minIdx; f <= maxIdx; f++) {
-            const currentFila = filas[f];
-            for (let d = minDia; d <= maxDia; d++) {
-              const inp = tabla.querySelector(`input.inp-celda[data-fila="${currentFila}"][data-dia="${d}"]`);
-              if (inp) {
-                inp.classList.add('cell-fill-dragged');
-                draggedInputs.push(inp);
-              }
-            }
-          }
-        }
-      }
+      draggedInputs = obtenerRangoCeldas(startFilaId, startDia, targetFilaId, targetDia);
+      draggedInputs.forEach(inp => inp.classList.add('cell-fill-dragged'));
     };
 
     const onEnd = () => {
       if (!isDragging) return;
       isDragging = false;
 
+      if (scrollWrap) scrollWrap.classList.remove('scroll-locked');
+
       if (draggedInputs.length > 0) {
-        draggedInputs.forEach(inp => {
-          inp.value = startVal || '';
-          inp.dispatchEvent(new Event('input', { bubbles: true }));
-        });
+        rellenarCeldas(draggedInputs, startVal);
+        DomHelpers.mostrarToast(`Celdas rellenadas con valor ${startVal}.`, 'success');
       }
-      clearHighlights();
+
+      desmarcarModoRelleno();
     };
 
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onEnd);
-    tabla.addEventListener('touchmove', onMove, { passive: true });
+
+    // Registramos touchmove con { passive: false } para poder llamar e.preventDefault() en Android
+    tabla.addEventListener('touchmove', onMove, { passive: false });
     document.addEventListener('touchend', onEnd);
+    document.addEventListener('touchcancel', onEnd);
   }
 
   /**
