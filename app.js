@@ -68,6 +68,9 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     bioCtrl.setOnSincronizarFormatos(sincronizarFecha);
+    bioCtrl.setOnMantenimientoCambiado((idEliminado) => {
+      formatosCtrl.notificarMantenimientoCambiado(idEliminado);
+    });
 
     // Sincronización inicial para la fecha actual al arrancar
     sincronizarFecha(DateUtils.getHoy());

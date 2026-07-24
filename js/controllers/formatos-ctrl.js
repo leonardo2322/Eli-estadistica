@@ -39,8 +39,36 @@ class FormatosController {
       onLimpiar:       () => this._limpiarGrilla()
     });
 
+    if (typeof this.view.bindEscanerFoto === 'function') {
+      this.view.bindEscanerFoto(datos => this.aplicarDatosFoto(datos));
+    }
+
     // Cargar grilla inicial si hay un área seleccionada
     this._cargarGrilla();
+  }
+
+  /**
+   * Inyecta los datos extraídos de la foto / IA a la grilla actual de Formatos.
+   * @param {object} datosExtraidos – { [filaId]: { [dia]: valor } }
+   */
+  aplicarDatosFoto(datosExtraidos) {
+    const areaId  = this.view.getAreaId();
+    const hojaId  = this.view.getHojaId();
+    const turnoId = this.view.getTurnoId();
+    const mes     = this.view.getMes();
+    const ano     = this.view.getAno();
+
+    if (!areaId || !datosExtraidos) return;
+
+    Object.keys(datosExtraidos).forEach(filaId => {
+      Object.keys(datosExtraidos[filaId] || {}).forEach(dia => {
+        const val = Number(datosExtraidos[filaId][dia]) || 0;
+        this.repo.actualizarCelda(areaId, hojaId, turnoId, ano, mes, filaId, Number(dia), val);
+      });
+    });
+
+    this._cargarGrilla();
+    DomHelpers.mostrarToast('¡Datos de la foto aplicados a la grilla exitosamente!', 'success');
   }
 
   // ─────────────────────────────────────────────────────────────
@@ -191,6 +219,18 @@ class FormatosController {
     DomHelpers.mostrarToast('Formato exportado exitosamente.', 'success');
   }
 
+  /**
+   * Notifica que se ha creado o eliminado un examen o servicio en Mantenimiento.
+   * Purga el ID eliminado del repositorio y refresca la grilla.
+   * @param {string} [idEliminado]
+   */
+  notificarMantenimientoCambiado(idEliminado) {
+    if (idEliminado && this.repo && typeof this.repo.purgarFilaId === 'function') {
+      this.repo.purgarFilaId(idEliminado);
+    }
+    this._cargarGrilla();
+  }
+
   // ─────────────────────────────────────────────────────────────
   // SINCRONIZACIÓN DESDE REGISTRO DE ATENCIÓN (RESUMEN DEL DÍA)
   // ─────────────────────────────────────────────────────────────
@@ -242,8 +282,8 @@ class FormatosController {
       if (destino) {
         const { areaId, hojaId, filaExamenId, filasServicioIds } = destino;
         const cant = parseInt(p.cantidad) || 1;
-        const valUnitario = parseFloat(ex.valor) || 0;
-        const valorAcumuladoExamen = Math.round(parseFloat(p.total) || (cant * valUnitario));
+        const multiplicador = typeof getAreaMultiplier === 'function' ? getAreaMultiplier(areaId) : 5;
+        const valorAcumuladoExamen = Math.round(parseFloat(p.total) || (cant * multiplicador));
 
         // A. Para las filas de servicio: acumula la cantidad de atenciones realizadas
         (filasServicioIds || []).forEach(fSrvId => {

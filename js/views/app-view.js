@@ -119,6 +119,11 @@ class AppView {
     this.$statServ  = document.getElementById('stat-servicios');
     this.$statExam  = document.getElementById('stat-examenes');
     this.$statsHoy  = document.getElementById('stats-hoy-examenes');
+    this.$inicioFecha = document.getElementById('inicio-fecha-filtro');
+    this.$tituloStatsFecha = document.getElementById('titulo-stats-fecha');
+    if (this.$inicioFecha) {
+      this.$inicioFecha.value = DateUtils.getHoy();
+    }
 
     // ── Servicios ──────────────────────────────────────────────
     this.$frmServ       = document.getElementById('form-servicio');
@@ -214,6 +219,9 @@ class AppView {
       const areaId = this.$examArea.value;
       const hojas = typeof getHojasParaArea === 'function' ? getHojasParaArea(areaId) : [];
       DomHelpers.reconstruirSelect(this.$examHoja, hojas, null, 'id', 'label');
+      if (this.$examValor) {
+        this.$examValor.value = typeof getAreaMultiplier === 'function' ? getAreaMultiplier(areaId) : 5;
+      }
     };
 
     if (this.$servArea) {
@@ -485,7 +493,6 @@ class AppView {
   fillExamForm(e) {
     this.$examId.value     = e.id;
     this.$examNombre.value = e.nombre;
-    this.$examValor.value  = e.valor;
     if (this.$examArea && e.areaId) {
       this.$examArea.value = e.areaId;
       this.$examArea.dispatchEvent(new Event('change'));
@@ -493,6 +500,8 @@ class AppView {
     if (this.$examHoja && e.hojaId) {
       this.$examHoja.value = e.hojaId;
     }
+    const valArea = typeof getAreaMultiplier === 'function' ? getAreaMultiplier(e.areaId || 'hematologia') : (e.valor || 5);
+    this.$examValor.value  = valArea;
     this.$btnSaveExam.innerHTML = `<i class="bi bi-check-circle me-1"></i>Actualizar`;
     this.$btnCancelExam.classList.remove('d-none');
   }
@@ -500,11 +509,11 @@ class AppView {
   clearExamForm() {
     this.$frmExam.reset();
     this.$examId.value    = '';
-    this.$examValor.value = '5';
     if (this.$examArea) {
       this.$examArea.value = 'hematologia';
       this.$examArea.dispatchEvent(new Event('change'));
     }
+    this.$examValor.value = typeof getAreaMultiplier === 'function' ? getAreaMultiplier('hematologia') : '5';
     this.$btnSaveExam.innerHTML = `<i class="bi bi-plus-circle me-1"></i>Guardar`;
     this.$btnCancelExam.classList.add('d-none');
   }
@@ -513,20 +522,17 @@ class AppView {
     this.$frmExam.addEventListener('submit', e => {
       e.preventDefault();
       if (!this.$frmExam.checkValidity()) { this.$frmExam.reportValidity(); return; }
+      const areaId = this.$examArea ? this.$examArea.value : 'hematologia';
       handler({
         id: this.$examId.value || null,
         nombre: this.$examNombre.value.trim(),
-        valor: parseFloat(this.$examValor.value),
-        areaId: this.$examArea ? this.$examArea.value : 'hematologia',
-        hojaId: this.$examHoja ? this.$examHoja.value : 'hematologia_h1'
+        valor: typeof getAreaMultiplier === 'function' ? getAreaMultiplier(areaId) : 5,
+        areaId,
+        hojaId: this.$examHoja ? this.$examHoja.value : `${areaId}_h1`
       });
     });
     this.$btnCancelExam.addEventListener('click', () => this.clearExamForm());
   }
-
-  // ════════════════════════════════════════════════════════════
-  // SELECTS + CÁLCULO EN TIEMPO REAL
-  // ════════════════════════════════════════════════════════════
 
   // ════════════════════════════════════════════════════════════
   // SELECTS + CÁLCULO EN TIEMPO REAL
@@ -574,16 +580,21 @@ class AppView {
 
   bindCalculo() {
     const calc = () => {
-      const exId  = this.$selExamen.value;
+      const exId  = this.$selExamen ? this.$selExamen.value : '';
       const exam  = (this._examenes || []).find(e => e.id === exId);
-      const valor = exam ? (parseFloat(exam.valor) || 0) : 0;
+      const areaSel = this.$selArea ? this.$selArea.value : '';
+      const areaId = areaSel || (exam ? (exam.areaId || inferirAreaDeExamen(exam.nombre)) : 'hematologia');
+      const multiplicador = typeof getAreaMultiplier === 'function' ? getAreaMultiplier(areaId) : 5;
       const cant  = Math.max(1, parseInt(this.$pacCantidad.value) || 1);
-      this.$pacTotal.value = (valor * cant).toFixed(2);
+      this.$pacTotal.value = (multiplicador * cant).toFixed(2);
     };
     this._calcFn = calc;
-    this.$selExamen.addEventListener('change', calc);
-    this.$pacCantidad.addEventListener('input',  calc);
-    this.$pacCantidad.addEventListener('change', calc);
+    if (this.$selExamen)   this.$selExamen.addEventListener('change', calc);
+    if (this.$selArea)     this.$selArea.addEventListener('change', calc);
+    if (this.$pacCantidad) {
+      this.$pacCantidad.addEventListener('input',  calc);
+      this.$pacCantidad.addEventListener('change', calc);
+    }
   }
 
   // ════════════════════════════════════════════════════════════
@@ -724,20 +735,37 @@ class AppView {
 
   getFechaResumen() { return this.$fechaResumen.value; }
 
+  getFechaInicioStats() {
+    return this.$inicioFecha ? (this.$inicioFecha.value || DateUtils.getHoy()) : DateUtils.getHoy();
+  }
+
+  bindFechaInicioStats(handler) {
+    if (this.$inicioFecha) {
+      this.$inicioFecha.addEventListener('change', () => handler(this.getFechaInicioStats()));
+    }
+  }
+
   // ════════════════════════════════════════════════════════════
   // STAT-CARDS HOY (Dashboard)
   // ════════════════════════════════════════════════════════════
 
-  renderStatsHoy(rows) {
+  renderStatsHoy(rows, fecha) {
     if (!this.$statsHoy) return;
     this.$statsHoy.innerHTML = '';
+
+    const fechaUsada = fecha || (this.$inicioFecha ? this.$inicioFecha.value : DateUtils.getHoy());
+    const esHoy = fechaUsada === DateUtils.getHoy();
+
+    if (this.$tituloStatsFecha) {
+      this.$tituloStatsFecha.textContent = esHoy ? 'Exámenes del día de hoy' : `Exámenes del ${fechaUsada}`;
+    }
 
     if (!rows.length) {
       this.$statsHoy.innerHTML = `
         <div class="col-12">
           <div class="alert alert-teal-soft d-flex align-items-center gap-2 mb-0">
             <span style="font-size:1.4rem">🔬</span>
-            <span class="text-teal-dark fw-semibold">Sin exámenes registrados hoy. ¡Comienza el registro!</span>
+            <span class="text-teal-dark fw-semibold">Sin exámenes registrados para la fecha ${fechaUsada}. ¡Comienza el registro!</span>
           </div>
         </div>`;
       return;
@@ -763,7 +791,7 @@ class AppView {
             <div class="stat-hoy-emoji">${emoji}</div>
             <div class="stat-hoy-nombre">${DomHelpers.esc(r.nombre)}</div>
             <div class="stat-hoy-cantidad">${r.cantidad}</div>
-            <div class="stat-hoy-label">examen(es) hoy</div>
+            <div class="stat-hoy-label">examen(es)</div>
             <div class="stat-hoy-total">Total: <strong>${r.total.toFixed(2)}</strong></div>
           </div>
         </div>`);

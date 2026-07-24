@@ -451,6 +451,25 @@ const NOMBRES_MESES = [
   'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE'
 ];
 
+/** Multiplicadores asignados por Área de Laboratorio */
+const AREA_MULTIPLIERS = {
+  uroanalisis: 6,
+  hematologia: 5,
+  coproanalisis: 2,
+  serologia: 1
+};
+
+/**
+ * Obtiene el multiplicador numérico para un área determinada.
+ * @param {string} areaId
+ * @returns {number}
+ */
+function getAreaMultiplier(areaId) {
+  if (!areaId) return 5;
+  const key = areaId.toLowerCase();
+  return AREA_MULTIPLIERS[key] !== undefined ? AREA_MULTIPLIERS[key] : 5;
+}
+
 // ═══════════════════════════════════════════════════════════════════
 // FUNCIONES DE MAPEO PARA AUTO-LLENADO DESDE REGISTRO DE ATENCIÓN
 // ═══════════════════════════════════════════════════════════════════

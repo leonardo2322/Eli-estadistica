@@ -41,37 +41,20 @@ class BioanalisisRepository {
   // ─────────────────────────────────────────────────────────────
   _seed() {
     const hoy = DateUtils.getHoy();
+    const yaSembrado = localStorage.getItem('eli_seeded');
 
     // 1. Servicios Predeterminados
     let srvExistentes = this._get(this.KEYS.SERVICIOS);
-    let cambioSrv = false;
 
-    if (!srvExistentes.length) {
+    if (!srvExistentes.length && !yaSembrado) {
       srvExistentes = SERVICIOS_PREDETERMINADOS.map((item, i) => ({
         id: `srv-${i + 1}`,
         nombre: item.nombre,
         key: item.key,
+        areaId: item.areaId || 'hematologia',
+        hojaId: item.hojaId || 'hematologia_h1',
         fecha: hoy
       }));
-      cambioSrv = true;
-    } else {
-      const norm = str => (str || '').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-      const nombresSet = new Set(srvExistentes.map(s => norm(s.nombre)));
-
-      SERVICIOS_PREDETERMINADOS.forEach((item, idx) => {
-        if (!nombresSet.has(norm(item.nombre))) {
-          srvExistentes.push({
-            id: `srv-auto-${Date.now()}-${idx}`,
-            nombre: item.nombre,
-            key: item.key,
-            fecha: hoy
-          });
-          cambioSrv = true;
-        }
-      });
-    }
-
-    if (cambioSrv) {
       this._set(this.KEYS.SERVICIOS, srvExistentes);
     }
 
@@ -92,38 +75,24 @@ class BioanalisisRepository {
     ];
 
     let exExistentes = this._get(this.KEYS.EXAMENES);
-    let cambioEx = false;
 
-    if (!exExistentes.length) {
-      exExistentes = examenesPredeterminados.map((nombre, i) => ({
-        id: `exm-${i + 1}`,
-        nombre,
-        valor: 5,
-        key: inferirExamenKey(nombre)
-      }));
-      cambioEx = true;
-    } else {
-      const norm = str => (str || '').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-      const nombresSet = new Set(exExistentes.map(e => norm(e.nombre)));
-
-      examenesPredeterminados.forEach((nombre, idx) => {
-        if (!nombresSet.has(norm(nombre))) {
-          exExistentes.push({
-            id: `exm-auto-${Date.now()}-${idx}`,
-            nombre,
-            valor: 5,
-            key: inferirExamenKey(nombre)
-          });
-          cambioEx = true;
-        }
+    if (!exExistentes.length && !yaSembrado) {
+      exExistentes = examenesPredeterminados.map((nombre, i) => {
+        const key = inferirExamenKey(nombre);
+        const areaId = (typeof EXAMEN_KEY_MAP !== 'undefined' && EXAMEN_KEY_MAP[key]) ? EXAMEN_KEY_MAP[key].areaId : inferirAreaDeExamen(nombre);
+        return {
+          id: `exm-${i + 1}`,
+          nombre,
+          key,
+          areaId,
+          hojaId: (typeof EXAMEN_KEY_MAP !== 'undefined' && EXAMEN_KEY_MAP[key]) ? EXAMEN_KEY_MAP[key].hojaId : `${areaId}_h1`,
+          valor: getAreaMultiplier(areaId)
+        };
       });
-    }
-
-    if (cambioEx) {
       this._set(this.KEYS.EXAMENES, exExistentes);
     }
 
-    if (!localStorage.getItem(this.KEYS.PACIENTES)) {
+    if (!localStorage.getItem(this.KEYS.PACIENTES) && !yaSembrado) {
       localStorage.setItem(this.KEYS.PACIENTES, JSON.stringify([
         {
           id: 'pac-1', fecha: hoy,
@@ -131,6 +100,8 @@ class BioanalisisRepository {
         }
       ]));
     }
+
+    localStorage.setItem('eli_seeded', 'true');
   }
 
   // ─────────────────────────────────────────────────────────────
@@ -179,16 +150,12 @@ class BioanalisisRepository {
 
     if (cambioSrv) this._set(this.KEYS.SERVICIOS, srvMig);
 
-    // Exámenes: esquema antiguo usaba valorBase/metodo/valorAumento o no tenía 'key' / 'areaId' / 'hojaId'
+    // Exámenes: actualizar clave, área, hoja y asignación de multiplicador por área
     const exs = this._get(this.KEYS.EXAMENES);
     let cambioEx = false;
     const exMig = exs.map(e => {
       let mod = false;
       const nuevo = { ...e };
-      if (nuevo.valor === undefined) {
-        nuevo.valor = parseFloat(e.valorBase || 5);
-        mod = true;
-      }
       if (!nuevo.key) {
         nuevo.key = inferirExamenKey(nuevo.nombre);
         mod = true;
@@ -201,6 +168,11 @@ class BioanalisisRepository {
       if (!nuevo.hojaId) {
         const defaultHoja = typeof getHojasParaArea === 'function' && getHojasParaArea(nuevo.areaId)[0] ? getHojasParaArea(nuevo.areaId)[0].id : `${nuevo.areaId}_h1`;
         nuevo.hojaId = (typeof EXAMEN_KEY_MAP !== 'undefined' && EXAMEN_KEY_MAP[nuevo.key]) ? EXAMEN_KEY_MAP[nuevo.key].hojaId : defaultHoja;
+        mod = true;
+      }
+      const valArea = typeof getAreaMultiplier === 'function' ? getAreaMultiplier(nuevo.areaId) : 5;
+      if (nuevo.valor !== valArea) {
+        nuevo.valor = valArea;
         mod = true;
       }
       if (mod) cambioEx = true;
@@ -302,13 +274,13 @@ class BioanalisisRepository {
    * @returns {object}
    */
   guardarExamen(e) {
-    e.valor = parseFloat(e.valor) || 0;
     if (!e.key) {
       e.key = inferirExamenKey(e.nombre);
     }
     if (!e.areaId) {
       e.areaId = typeof inferirAreaDeExamen === 'function' ? inferirAreaDeExamen(e.nombre) : 'hematologia';
     }
+    e.valor = typeof getAreaMultiplier === 'function' ? getAreaMultiplier(e.areaId) : 5;
     if (!e.hojaId) {
       const config = typeof EXAMEN_KEY_MAP !== 'undefined' ? EXAMEN_KEY_MAP[e.key] : null;
       if (config && config.hojaId) {

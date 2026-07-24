@@ -235,19 +235,22 @@ class FormatosView {
             </td>`;
           });
         } else {
-          // Celdas editables
+          // Celdas editables con manija de copiado tipo Excel (Fill Handle)
           dias.forEach(d => {
             const val     = Number(filaData[d]) || '';
             const clsHoy  = esHoy(d) ? ' celda-hoy' : '';
             celdas += `<td class="celda-input${clsHoy}">
-              <input
-                type="number" min="0" step="1"
-                class="inp-celda"
-                data-fila="${fila.id}"
-                data-dia="${d}"
-                value="${val}"
-                aria-label="${DomHelpers.esc(fila.label)} día ${d}"
-              >
+              <div class="celda-wrapper">
+                <input
+                  type="number" min="0" step="1"
+                  class="inp-celda"
+                  data-fila="${fila.id}"
+                  data-dia="${d}"
+                  value="${val}"
+                  aria-label="${DomHelpers.esc(fila.label)} día ${d}"
+                >
+                <div class="cell-fill-handle" data-fila="${fila.id}" data-dia="${d}" title="Arrastrar para copiar celda tipo Excel"></div>
+              </div>
             </td>`;
           });
         }
@@ -295,8 +298,9 @@ class FormatosView {
         BIOANALISTA: <strong>${HOSPITAL_INFO.bioanalista}</strong>
       </div>`;
 
-    // ── Ligar eventos de inputs ────────────────────────────────
+    // ── Ligar eventos de inputs y manija de Excel ──────────────
     this._bindInputsCelda(area, hoja, mes, ano, dias, datos);
+    this._initFillHandleEvents(dias, datos);
   }
 
   // ════════════════════════════════════════════════════════════
@@ -467,6 +471,236 @@ class FormatosView {
     totales.forEach(td => { td.textContent = ''; });
     const celdastot = this.$contenedorGrilla.querySelectorAll('.celda-total');
     celdastot.forEach(td => { td.textContent = ''; });
+  }
+
+  /**
+   * Inicializa la manija de copiado tipo Excel (Fill Handle) para arrastrar y copiar celdas.
+   */
+  _initFillHandleEvents(dias, datosInicio) {
+    const tabla = document.getElementById('tabla-grilla-principal');
+    if (!tabla) return;
+
+    let isDragging = false;
+    let startFilaId = null;
+    let startDia = null;
+    let startVal = 0;
+    let draggedInputs = [];
+
+    const clearHighlights = () => {
+      draggedInputs.forEach(inp => inp.classList.remove('cell-fill-dragged'));
+      draggedInputs = [];
+    };
+
+    tabla.addEventListener('mousedown', e => {
+      const handle = e.target.closest('.cell-fill-handle');
+      if (!handle) return;
+      e.preventDefault();
+
+      startFilaId = handle.dataset.fila;
+      startDia = Number(handle.dataset.dia);
+
+      const sourceInp = tabla.querySelector(`input.inp-celda[data-fila="${startFilaId}"][data-dia="${startDia}"]`);
+      startVal = sourceInp ? (parseInt(sourceInp.value) || 0) : 0;
+      isDragging = true;
+    });
+
+    const onMove = e => {
+      if (!isDragging) return;
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+      const targetEl = document.elementFromPoint(clientX, clientY);
+
+      if (!targetEl) return;
+      const targetInp = targetEl.closest('.inp-celda') || targetEl.querySelector('.inp-celda');
+      if (!targetInp) return;
+
+      const targetFilaId = targetInp.dataset.fila;
+      const targetDia = Number(targetInp.dataset.dia);
+
+      clearHighlights();
+
+      // Determinar rango de días (horizontal) o filas (vertical)
+      const minDia = Math.min(startDia, targetDia);
+      const maxDia = Math.max(startDia, targetDia);
+
+      if (startFilaId === targetFilaId) {
+        for (let d = minDia; d <= maxDia; d++) {
+          const inp = tabla.querySelector(`input.inp-celda[data-fila="${startFilaId}"][data-dia="${d}"]`);
+          if (inp) {
+            inp.classList.add('cell-fill-dragged');
+            draggedInputs.push(inp);
+          }
+        }
+      } else {
+        const filas = Array.from(tabla.querySelectorAll('tr.fila-dato')).map(tr => tr.dataset.filaId);
+        const idxStart = filas.indexOf(startFilaId);
+        const idxEnd = filas.indexOf(targetFilaId);
+
+        if (idxStart !== -1 && idxEnd !== -1) {
+          const minIdx = Math.min(idxStart, idxEnd);
+          const maxIdx = Math.max(idxStart, idxEnd);
+
+          for (let f = minIdx; f <= maxIdx; f++) {
+            const currentFila = filas[f];
+            for (let d = minDia; d <= maxDia; d++) {
+              const inp = tabla.querySelector(`input.inp-celda[data-fila="${currentFila}"][data-dia="${d}"]`);
+              if (inp) {
+                inp.classList.add('cell-fill-dragged');
+                draggedInputs.push(inp);
+              }
+            }
+          }
+        }
+      }
+    };
+
+    const onEnd = () => {
+      if (!isDragging) return;
+      isDragging = false;
+
+      if (draggedInputs.length > 0) {
+        draggedInputs.forEach(inp => {
+          inp.value = startVal || '';
+          inp.dispatchEvent(new Event('input', { bubbles: true }));
+        });
+      }
+      clearHighlights();
+    };
+
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onEnd);
+    tabla.addEventListener('touchmove', onMove, { passive: true });
+    document.addEventListener('touchend', onEnd);
+  }
+
+  /**
+   * Conecta los controles del Modal de Escáner de Foto e IA.
+   * @param {Function} onAplicarFoto – Callback que recibe (datosExtraidos)
+   */
+  bindEscanerFoto(onAplicarFoto) {
+    const $btnEscanear = document.getElementById('fmt-btn-escanear-foto');
+    const $modal       = document.getElementById('modal-escaner-foto');
+    const $btnCerrar   = document.getElementById('btn-cerrar-escaner');
+    const $dropzone    = document.getElementById('escaner-dropzone');
+    const $inpFoto     = document.getElementById('inp-foto-planilla');
+    const $previewWrap = document.getElementById('contenedor-preview-foto');
+    const $imgPreview  = document.getElementById('img-preview-foto');
+    const $btnReemplaz = document.getElementById('btn-reemplazar-foto');
+    const $progWrap    = document.getElementById('contenedor-progreso-ocr');
+    const $lblEstado   = document.getElementById('lbl-estado-ocr');
+    const $pctEstado   = document.getElementById('pct-estado-ocr');
+    const $barProgreso = document.getElementById('bar-progreso-ocr');
+    const $resWrap     = document.getElementById('contenedor-resultados-ocr');
+    const $tbodyRes    = document.getElementById('tbody-resultados-ocr');
+    const $btnAplicar  = document.getElementById('btn-aplicar-foto-formato');
+
+    if (!$btnEscanear || !$modal) return;
+
+    let datosExtraidosTemporal = null;
+
+    const abrirModal = () => {
+      if (!this.getAreaId()) {
+        DomHelpers.mostrarToast('Seleccione un área antes de escanear una foto.', 'error');
+        return;
+      }
+      $modal.classList.remove('d-none');
+      document.body.style.overflow = 'hidden';
+    };
+
+    const cerrarModal = () => {
+      $modal.classList.add('d-none');
+      document.body.style.overflow = '';
+      resetForm();
+    };
+
+    const resetForm = () => {
+      $inpFoto.value = '';
+      $previewWrap.classList.add('d-none');
+      $dropzone.classList.remove('d-none');
+      $progWrap.classList.add('d-none');
+      $resWrap.classList.add('d-none');
+      $tbodyRes.innerHTML = '';
+      datosExtraidosTemporal = null;
+    };
+
+    $btnEscanear.addEventListener('click', abrirModal);
+    $btnCerrar.addEventListener('click', cerrarModal);
+    $btnReemplaz.addEventListener('click', () => resetForm());
+
+    $dropzone.addEventListener('click', () => $inpFoto.click());
+
+    $dropzone.addEventListener('dragover', e => { e.preventDefault(); $dropzone.style.borderColor = 'var(--teal)'; });
+    $dropzone.addEventListener('dragleave', e => { e.preventDefault(); $dropzone.style.borderColor = '#cbd5e1'; });
+    $dropzone.addEventListener('drop', e => {
+      e.preventDefault();
+      if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+        procesarArchivo(e.dataTransfer.files[0]);
+      }
+    });
+
+    $inpFoto.addEventListener('change', () => {
+      if ($inpFoto.files && $inpFoto.files[0]) {
+        procesarArchivo($inpFoto.files[0]);
+      }
+    });
+
+    const procesarArchivo = async (file) => {
+      $dropzone.classList.add('d-none');
+      $previewWrap.classList.remove('d-none');
+      $progWrap.classList.remove('d-none');
+      $resWrap.classList.add('d-none');
+
+      const url = URL.createObjectURL(file);
+      $imgPreview.src = url;
+
+      const area = HOSPITAL_AREAS.find(a => a.id === this.getAreaId());
+      const hoja = area?.hojas.find(h => h.id === this.getHojaId()) || area?.hojas[0];
+      const filasDisponibles = [];
+      (hoja?.grupos || []).forEach(g => {
+        g.filas.forEach(f => {
+          if (!f.esTotal) filasDisponibles.push(f);
+        });
+      });
+
+      const diasEnMes = DateUtils.diasDelMes(this._mes, this._ano).length;
+
+      try {
+        const { datos, resumenLineas } = await OcrScanner.escanearFotoFormatos(file, filasDisponibles, diasEnMes, prog => {
+          $lblEstado.textContent = prog.msg || 'Procesando...';
+          const pct = Math.round(prog.progress * 100);
+          $pctEstado.textContent = `${pct}%`;
+          $barProgreso.style.width = `${pct}%`;
+        });
+
+        datosExtraidosTemporal = datos;
+        $progWrap.classList.add('d-none');
+        $resWrap.classList.remove('d-none');
+
+        $tbodyRes.innerHTML = '';
+        if (!resumenLineas.length) {
+          $tbodyRes.innerHTML = `<tr><td colspan="2" class="text-muted text-center py-2">No se detectaron filas de conteo en la foto. Intente con una imagen más clara.</td></tr>`;
+        } else {
+          resumenLineas.forEach(linea => {
+            const valsStr = linea.numeros.join(', ');
+            $tbodyRes.appendChild(DomHelpers.crearFila(`
+              <td class="fw-semibold text-teal-dark">${DomHelpers.esc(linea.label)}</td>
+              <td class="small text-muted">${valsStr}</td>
+            `));
+          });
+        }
+      } catch (err) {
+        $progWrap.classList.add('d-none');
+        DomHelpers.mostrarToast(err.message || 'Error al procesar la imagen.', 'error');
+        resetForm();
+      }
+    };
+
+    $btnAplicar.addEventListener('click', () => {
+      if (datosExtraidosTemporal && onAplicarFoto) {
+        onAplicarFoto(datosExtraidosTemporal);
+        cerrarModal();
+      }
+    });
   }
 
   /** Muestra el estado de "Sin área seleccionada" */

@@ -35,6 +35,9 @@ class BioanalisisController {
     this.view.bindCalculo();
     this.view.bindFiltros(f => { this.filtros = f; this._renderPacientes(); });
     this.view.bindFechaResumen(f => { this.fechaRes = f; this._renderResumen(); });
+    if (typeof this.view.bindFechaInicioStats === 'function') {
+      this.view.bindFechaInicioStats(f => this._refrescar());
+    }
     this.view.bindFinalizarTurno(() => this._finalizarTurno());
     this.view.bindExport(
       ()  => this._exportHistorial(),
@@ -42,6 +45,20 @@ class BioanalisisController {
       (f) => this._enviarCorreo(f)
     );
     this._refrescar();
+  }
+
+  /**
+   * Registra el callback para notificar cambios en Mantenimiento hacia Formatos.
+   * @param {Function} onMantenimientoCambiado – (idEliminado?)
+   */
+  setOnMantenimientoCambiado(onMantenimientoCambiado) {
+    this._cbMantenimientoCambiado = onMantenimientoCambiado;
+  }
+
+  _notificarMantenimiento(idEliminado) {
+    if (typeof this._cbMantenimientoCambiado === 'function') {
+      this._cbMantenimientoCambiado(idEliminado);
+    }
   }
 
   /**
@@ -89,10 +106,10 @@ class BioanalisisController {
     this._renderResumen();
     this.view.updateStats(pacientes.length, servicios.length, examenes.length);
 
-    // Stat-cards de HOY en el Dashboard
-    const hoy = DateUtils.getHoy();
-    const { rows } = this._calcResumen(hoy);
-    this.view.renderStatsHoy(rows);
+    // Stat-cards en el Dashboard (Fecha seleccionada o fecha del último registro)
+    const fechaStats = this.view.getFechaInicioStats ? (this.view.getFechaInicioStats() || DateUtils.getHoy()) : DateUtils.getHoy();
+    const { rows } = this._calcResumen(fechaStats);
+    this.view.renderStatsHoy(rows, fechaStats);
   }
 
   // ─────────────────────────────────────────────────────────────
@@ -103,12 +120,14 @@ class BioanalisisController {
     this.repo.guardarServicio(d);
     this.view.clearServForm();
     this._refrescar();
+    this._notificarMantenimiento();
     DomHelpers.mostrarToast('Servicio guardado correctamente.', 'success');
   }
 
   _eliminarServicio(id) {
     this.repo.eliminarServicio(id);
     this._refrescar();
+    this._notificarMantenimiento(id);
     DomHelpers.mostrarToast('Servicio eliminado.', 'info');
   }
 
@@ -120,12 +139,14 @@ class BioanalisisController {
     this.repo.guardarExamen(d);
     this.view.clearExamForm();
     this._refrescar();
+    this._notificarMantenimiento();
     DomHelpers.mostrarToast('Examen guardado correctamente.', 'success');
   }
 
   _eliminarExamen(id) {
     this.repo.eliminarExamen(id);
     this._refrescar();
+    this._notificarMantenimiento(id);
     DomHelpers.mostrarToast('Examen eliminado.', 'info');
   }
 

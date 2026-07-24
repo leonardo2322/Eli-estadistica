@@ -1348,3 +1348,50 @@ body {
   }
 }
 
+/* ============================================
+   MANIJA DE COPIADO TIPO EXCEL (FILL HANDLE) & IA
+   ============================================ */
+.celda-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+.celda-input:focus {
+  outline: 2px solid var(--teal) !important;
+  z-index: 2;
+}
+
+.cell-fill-handle {
+  position: absolute;
+  bottom: 0px;
+  right: 0px;
+  width: 8px;
+  height: 8px;
+  background-color: var(--teal-dark);
+  border: 1px solid white;
+  cursor: crosshair;
+  z-index: 10;
+  display: none;
+  border-radius: 1px;
+  box-shadow: 0 0 3px rgba(0,0,0,0.3);
+}
+
+td:hover .cell-fill-handle,
+.celda-input:focus ~ .cell-fill-handle {
+  display: block;
+}
+
+.cell-fill-dragged {
+  background-color: rgba(13, 148, 136, 0.28) !important;
+  outline: 2px dashed var(--teal) !important;
+}
+
+.style-dropzone:hover {
+  background-color: #f1f5f9 !important;
+  border-color: var(--teal) !important;
+}
+

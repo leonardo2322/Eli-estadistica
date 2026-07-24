@@ -125,6 +125,30 @@ class FormatosRepository {
     localStorage.removeItem(clave);
   }
 
+  /**
+   * Elimina cualquier dato guardado en formatos para una fila (examen o servicio) eliminada.
+   * @param {string} filaId
+   */
+  purgarFilaId(filaId) {
+    if (!filaId) return;
+    const clavesAEliminar = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const clave = localStorage.key(i);
+      if (clave && clave.startsWith(this.PREFIJO)) {
+        clavesAEliminar.push(clave);
+      }
+    }
+    clavesAEliminar.forEach(clave => {
+      try {
+        const datos = JSON.parse(localStorage.getItem(clave)) || {};
+        if (datos[filaId]) {
+          delete datos[filaId];
+          localStorage.setItem(clave, JSON.stringify(datos));
+        }
+      } catch (e) {}
+    });
+  }
+
   // ─────────────────────────────────────────────────────────────
   // CONSULTAS
   // ─────────────────────────────────────────────────────────────
