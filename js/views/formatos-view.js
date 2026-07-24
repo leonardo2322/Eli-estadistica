@@ -408,6 +408,9 @@ class FormatosView {
     let celdaOrigenRango = null;
 
     const resetModoRango = () => {
+      if (celdaOrigenRango && celdaOrigenRango.inp) {
+        celdaOrigenRango.inp.classList.remove('inp-celda-origen');
+      }
       modoCopiarRangoActivo = false;
       celdaOrigenRango = null;
       if ($btnRango) {
@@ -418,9 +421,7 @@ class FormatosView {
     };
 
     if ($mobBar) {
-      tabla.addEventListener('focusin', e => {
-        if (!e.target.classList.contains('inp-celda')) return;
-        const inp = e.target;
+      const activarBarraMovil = (inp) => {
         const filaId = inp.dataset.fila;
         const dia = Number(inp.dataset.dia);
         const val = parseInt(inp.value) || 0;
@@ -475,6 +476,17 @@ class FormatosView {
           }
         }
         $mobBar.classList.remove('d-none');
+      };
+
+      tabla.addEventListener('focusin', e => {
+        if (!e.target.classList.contains('inp-celda')) return;
+        activarBarraMovil(e.target);
+      });
+
+      tabla.addEventListener('click', e => {
+        const inp = e.target.closest('.inp-celda');
+        if (!inp) return;
+        activarBarraMovil(inp);
       });
 
       if ($btnCerrar) {
@@ -495,6 +507,7 @@ class FormatosView {
           } else {
             modoCopiarRangoActivo = true;
             celdaOrigenRango = { ...celdaActivaMobile };
+            if (celdaOrigenRango.inp) celdaOrigenRango.inp.classList.add('inp-celda-origen');
             $btnRango.innerHTML = '<i class="bi bi-x-circle me-1"></i>Cancelar';
             $btnRango.classList.remove('btn-outline-primary');
             $btnRango.classList.add('btn-danger');

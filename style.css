@@ -1437,5 +1437,9 @@ td:hover .cell-fill-handle,
   to   { transform: translate(-50%, 0); opacity: 1; }
 }
 
-
-
+/* Resalte para celda origen seleccionada en modo Copiar hasta... */
+.inp-celda.inp-celda-origen {
+  outline: 2.5px solid var(--teal) !important;
+  background-color: rgba(13, 148, 136, 0.22) !important;
+  box-shadow: 0 0 8px rgba(13, 148, 136, 0.4) !important;
+}
