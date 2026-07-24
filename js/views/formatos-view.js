@@ -393,6 +393,81 @@ class FormatosView {
       // Mostrar indicador de guardado
       this._mostrarGuardado();
     });
+
+    // Controles de toolbar flotante de copiado móvil
+    const $mobBar    = document.getElementById('fmt-mobile-copiar-bar');
+    const $mobLabel  = document.getElementById('lbl-cell-focus-mobile');
+    const $btnFila   = document.getElementById('btn-mob-copiar-fila');
+    const $btn7Dias  = document.getElementById('btn-mob-copiar-7dias');
+    const $btnCol    = document.getElementById('btn-mob-copiar-columna');
+    const $btnCerrar = document.getElementById('btn-mob-cerrar-bar');
+
+    let celdaActivaMobile = null;
+
+    if ($mobBar) {
+      tabla.addEventListener('focusin', e => {
+        if (!e.target.classList.contains('inp-celda')) return;
+        const inp = e.target;
+        celdaActivaMobile = {
+          filaId: inp.dataset.fila,
+          dia: Number(inp.dataset.dia),
+          inp
+        };
+        const val = parseInt(inp.value) || 0;
+        if ($mobLabel) $mobLabel.textContent = `Día ${celdaActivaMobile.dia}: [${val}]`;
+        $mobBar.classList.remove('d-none');
+      });
+
+      if ($btnCerrar) {
+        $btnCerrar.onclick = () => $mobBar.classList.add('d-none');
+      }
+
+      if ($btnFila) {
+        $btnFila.onclick = () => {
+          if (!celdaActivaMobile) return;
+          const { filaId, inp } = celdaActivaMobile;
+          const val = parseInt(inp.value) || 0;
+          dias.forEach(d => {
+            const targetInp = tabla.querySelector(`input.inp-celda[data-fila="${filaId}"][data-dia="${d}"]`);
+            if (targetInp) {
+              targetInp.value = val || '';
+              targetInp.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+          });
+          DomHelpers.mostrarToast(`Fila rellenada con valor ${val}.`, 'success');
+        };
+      }
+
+      if ($btn7Dias) {
+        $btn7Dias.onclick = () => {
+          if (!celdaActivaMobile) return;
+          const { filaId, dia, inp } = celdaActivaMobile;
+          const val = parseInt(inp.value) || 0;
+          for (let d = dia; d <= Math.min(dia + 6, dias.length); d++) {
+            const targetInp = tabla.querySelector(`input.inp-celda[data-fila="${filaId}"][data-dia="${d}"]`);
+            if (targetInp) {
+              targetInp.value = val || '';
+              targetInp.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+          }
+          DomHelpers.mostrarToast(`Copiado a los 7 días siguientes.`, 'success');
+        };
+      }
+
+      if ($btnCol) {
+        $btnCol.onclick = () => {
+          if (!celdaActivaMobile) return;
+          const { dia, inp } = celdaActivaMobile;
+          const val = parseInt(inp.value) || 0;
+          const targetInputs = tabla.querySelectorAll(`input.inp-celda[data-dia="${dia}"]`);
+          targetInputs.forEach(targetInp => {
+            targetInp.value = val || '';
+            targetInp.dispatchEvent(new Event('input', { bubbles: true }));
+          });
+          DomHelpers.mostrarToast(`Día ${dia} rellenado con valor ${val}.`, 'success');
+        };
+      }
+    }
   }
 
   /**

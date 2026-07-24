@@ -228,6 +228,25 @@
             <h5>Seleccione un área para ver el formato</h5>
             <p class="text-muted">Use los controles de arriba para elegir el área, mes, año y turno.</p>
           </div>
+        <!-- Toolbar Flotante de Copiado Rápido Móvil -->
+        <div id="fmt-mobile-copiar-bar" class="fmt-mobile-toolbar d-none shadow-lg">
+          <div class="d-flex align-items-center justify-content-between gap-2 px-3 py-2">
+            <span class="small fw-bold text-teal me-1" id="lbl-cell-focus-mobile">Celda activa</span>
+            <div class="d-flex gap-1 flex-wrap justify-content-end align-items-center">
+              <button id="btn-mob-copiar-fila" class="btn btn-sm btn-teal-action py-1 px-2" title="Copiar este número a todos los días de esta fila">
+                <i class="bi bi-arrow-right-short"></i>Rellenar Fila
+              </button>
+              <button id="btn-mob-copiar-7dias" class="btn btn-sm btn-outline-teal py-1 px-2" title="Copiar a los 7 días siguientes">
+                <i class="bi bi-calendar2-plus me-1"></i>+7 Días
+              </button>
+              <button id="btn-mob-copiar-columna" class="btn btn-sm btn-outline-secondary py-1 px-2" title="Copiar a todos los exámenes de este día">
+                <i class="bi bi-arrow-down-short"></i>Rellenar Día
+              </button>
+              <button id="btn-mob-cerrar-bar" class="btn btn-sm btn-light text-muted p-1 ms-1" title="Cerrar">
+                <i class="bi bi-x-lg"></i>
+              </button>
+            </div>
+          </div>
         </div>
 
       </section>

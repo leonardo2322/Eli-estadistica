@@ -1395,3 +1395,45 @@ td:hover .cell-fill-handle,
   border-color: var(--teal) !important;
 }
 
+/* Área táctil extendida para dispositivos móviles */
+.cell-fill-handle::after {
+  content: '';
+  position: absolute;
+  top: -12px;
+  left: -12px;
+  right: -12px;
+  bottom: -12px;
+}
+
+@media (max-width: 768px) {
+  .cell-fill-handle {
+    width: 14px;
+    height: 14px;
+    background-color: var(--teal);
+    border: 2px solid white;
+    border-radius: 3px;
+  }
+}
+
+/* Toolbar Flotante Móvil de Copiado Rápido */
+.fmt-mobile-toolbar {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1050;
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1.5px solid rgba(13, 148, 136, 0.3);
+  border-radius: 30px;
+  max-width: 95vw;
+  box-shadow: 0 10px 30px rgba(13, 148, 136, 0.25);
+  animation: mobBarIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes mobBarIn {
+  from { transform: translate(-50%, 30px); opacity: 0; }
+  to   { transform: translate(-50%, 0); opacity: 1; }
+}
+
