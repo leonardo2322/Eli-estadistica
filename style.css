@@ -1367,17 +1367,17 @@ body {
 
 .cell-fill-handle {
   position: absolute;
-  bottom: 0px;
-  right: 0px;
-  width: 8px;
-  height: 8px;
+  bottom: 1px;
+  right: 1px;
+  width: 5px;
+  height: 5px;
   background-color: var(--teal-dark);
   border: 1px solid white;
   cursor: crosshair;
   z-index: 10;
   display: none;
   border-radius: 1px;
-  box-shadow: 0 0 3px rgba(0,0,0,0.3);
+  box-shadow: 0 0 2px rgba(0,0,0,0.2);
 }
 
 td:hover .cell-fill-handle,
@@ -1395,46 +1395,78 @@ td:hover .cell-fill-handle,
   border-color: var(--teal) !important;
 }
 
-/* Área táctil extendida para dispositivos móviles */
-.cell-fill-handle::after {
-  content: '';
-  position: absolute;
-  top: -12px;
-  left: -12px;
-  right: -12px;
-  bottom: -12px;
-}
-
 @media (max-width: 768px) {
   .cell-fill-handle {
-    width: 14px;
-    height: 14px;
-    background-color: var(--teal);
-    border: 2px solid white;
-    border-radius: 3px;
+    width: 4px;
+    height: 4px;
+    pointer-events: none;
   }
 }
 
-/* Toolbar Flotante Móvil de Copiado Rápido */
-.fmt-mobile-toolbar {
+/* Overlay de Fondo Centrado para la Ventana de Copiado Móvil */
+.fmt-mobile-overlay {
   position: fixed;
-  bottom: 20px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 1050;
-  background: rgba(255, 255, 255, 0.96);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border: 1.5px solid rgba(13, 148, 136, 0.3);
-  border-radius: 30px;
-  max-width: 95vw;
-  box-shadow: 0 10px 30px rgba(13, 148, 136, 0.25);
-  animation: mobBarIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 1080;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 15px;
+  animation: fadeInOverlay 0.2s ease-out;
 }
 
-@keyframes mobBarIn {
-  from { transform: translate(-50%, 30px); opacity: 0; }
-  to   { transform: translate(-50%, 0); opacity: 1; }
+@keyframes fadeInOverlay {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* Tarjeta Modal Centrada Móvil */
+.fmt-mobile-modal-card {
+  width: 100%;
+  max-width: 440px;
+  background: #ffffff;
+  border-radius: 16px;
+  border: 1px solid rgba(13, 148, 136, 0.25);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.22);
+  animation: popInCard 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
+}
+
+@keyframes popInCard {
+  from { transform: scale(0.92); opacity: 0; }
+  to   { transform: scale(1); opacity: 1; }
+}
+
+.fmt-opcion-btn {
+  border: 1.5px solid #e2e8f0 !important;
+  color: #334155 !important;
+  transition: all 0.15s ease-in-out;
+  border-radius: 10px !important;
+  font-weight: 500;
+  font-size: 0.9rem;
+  background-color: #ffffff;
+}
+
+.fmt-opcion-btn:hover, .fmt-opcion-btn:focus {
+  background-color: #f8fafc !important;
+}
+
+.fmt-opcion-btn.opcion-seleccionada {
+  background-color: rgba(13, 148, 136, 0.1) !important;
+  border-color: var(--teal) !important;
+  color: var(--teal-dark) !important;
+  font-weight: 700 !important;
+  box-shadow: 0 2px 8px rgba(13, 148, 136, 0.15);
+}
+
+.fmt-opcion-btn.opcion-seleccionada .check-icon {
+  color: var(--teal) !important;
 }
 
 /* Resalte para celda origen seleccionada en modo Copiar hasta... */

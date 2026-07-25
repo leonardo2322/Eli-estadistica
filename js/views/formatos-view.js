@@ -394,175 +394,204 @@ class FormatosView {
       this._mostrarGuardado();
     });
 
-    // Controles de toolbar flotante de copiado móvil
-    const $mobBar    = document.getElementById('fmt-mobile-copiar-bar');
-    const $mobLabel  = document.getElementById('lbl-cell-focus-mobile');
-    const $btnFila   = document.getElementById('btn-mob-copiar-fila');
-    const $btn7Dias  = document.getElementById('btn-mob-copiar-7dias');
-    const $btnRango  = document.getElementById('btn-mob-copiar-rango');
-    const $btnCol    = document.getElementById('btn-mob-copiar-columna');
-    const $btnCerrar = document.getElementById('btn-mob-cerrar-bar');
+    // Controles de ventana modal centrada de copiado móvil
+    const $mobOverlay = document.getElementById('fmt-mobile-copiar-overlay');
+    const $mobLabel   = document.getElementById('lbl-cell-focus-mobile');
+    const $mobInstruccion = document.getElementById('lbl-mob-instruccion');
+    const $btnFila    = document.getElementById('btn-mob-copiar-fila');
+    const $btn7Dias   = document.getElementById('btn-mob-copiar-7dias');
+    const $btnRango   = document.getElementById('btn-mob-copiar-rango');
+    const $btnCol     = document.getElementById('btn-mob-copiar-columna');
+    const $btnCerrar  = document.getElementById('btn-mob-cerrar-bar');
+    const $btnCancelar = document.getElementById('btn-mob-cancelar-accion');
+    const $btnAplicar = document.getElementById('btn-mob-aplicar-accion');
 
     let celdaActivaMobile = null;
-    let modoCopiarRangoActivo = false;
+    let opcionSeleccionada = null; // 'fila' | '7dias' | 'rango' | 'columna' | null
     let celdaOrigenRango = null;
+    let celdaDestinoRango = null;
 
-    const resetModoRango = () => {
+    const desmarcarOpcionesUI = () => {
+      [$btnFila, $btn7Dias, $btnRango, $btnCol].forEach(btn => {
+        if (!btn) return;
+        btn.classList.remove('opcion-seleccionada');
+        const icon = btn.querySelector('.check-icon');
+        if (icon) {
+          icon.className = 'bi bi-circle check-icon text-muted';
+        }
+      });
+    };
+
+    const resetModal = () => {
+      opcionSeleccionada = null;
       if (celdaOrigenRango && celdaOrigenRango.inp) {
         celdaOrigenRango.inp.classList.remove('inp-celda-origen');
       }
-      modoCopiarRangoActivo = false;
       celdaOrigenRango = null;
-      if ($btnRango) {
-        $btnRango.innerHTML = '<i class="bi bi-pin-angle me-1"></i>Copiar hasta...';
-        $btnRango.classList.remove('btn-danger');
-        $btnRango.classList.add('btn-outline-primary');
+      celdaDestinoRango = null;
+      desmarcarOpcionesUI();
+      if ($btnAplicar) $btnAplicar.disabled = true;
+      if ($mobInstruccion) $mobInstruccion.textContent = 'Seleccione una opción de copiado:';
+      if ($mobOverlay) $mobOverlay.classList.add('d-none');
+    };
+
+    const seleccionarOpcion = (opcion, btnEl) => {
+      if (opcionSeleccionada === opcion) {
+        // Deseleccionar si ya estaba seleccionado
+        opcionSeleccionada = null;
+        desmarcarOpcionesUI();
+        if ($btnAplicar) $btnAplicar.disabled = true;
+        if ($mobInstruccion) $mobInstruccion.textContent = 'Seleccione una opción de copiado:';
+        return;
+      }
+
+      // Marcar nueva opción
+      desmarcarOpcionesUI();
+      opcionSeleccionada = opcion;
+      btnEl.classList.add('opcion-seleccionada');
+      const icon = btnEl.querySelector('.check-icon');
+      if (icon) icon.className = 'bi bi-check-circle-fill check-icon text-teal';
+
+      if (opcion === 'rango') {
+        celdaOrigenRango = { ...celdaActivaMobile };
+        if (celdaOrigenRango.inp) celdaOrigenRango.inp.classList.add('inp-celda-origen');
+        if ($mobInstruccion) $mobInstruccion.innerHTML = `📍 Origen Día ${celdaOrigenRango.dia} (${celdaOrigenRango.val}). <br><strong>Cierra este panel y toca la celda destino en la tabla.</strong>`;
+        if ($btnAplicar) $btnAplicar.disabled = celdaDestinoRango ? false : true;
+        DomHelpers.mostrarToast(`Origen fijado (Día ${celdaOrigenRango.dia}). Toca la celda destino en la tabla.`, 'info');
+      } else {
+        if (celdaOrigenRango && celdaOrigenRango.inp) {
+          celdaOrigenRango.inp.classList.remove('inp-celda-origen');
+        }
+        celdaOrigenRango = null;
+        celdaDestinoRango = null;
+        if ($mobInstruccion) $mobInstruccion.textContent = 'Opción seleccionada. Pulse "Aplicar Copiado" para confirmar.';
+        if ($btnAplicar) $btnAplicar.disabled = false;
       }
     };
 
-    if ($mobBar) {
-      const activarBarraMovil = (inp) => {
+    if ($mobOverlay) {
+      const abrirModalCelda = (inp) => {
         const filaId = inp.dataset.fila;
         const dia = Number(inp.dataset.dia);
         const val = parseInt(inp.value) || 0;
 
-        // Si el modo "Copiar hasta..." está activo y se toca OTRA celda diferente:
-        if (modoCopiarRangoActivo && celdaOrigenRango && celdaOrigenRango.inp !== inp) {
-          const fromFilaId = celdaOrigenRango.filaId;
-          const fromDia = celdaOrigenRango.dia;
-          const valorACopiar = celdaOrigenRango.val;
-
-          const minDia = Math.min(fromDia, dia);
-          const maxDia = Math.max(fromDia, dia);
-
-          if (fromFilaId === filaId) {
-            for (let d = minDia; d <= maxDia; d++) {
-              const targetInp = tabla.querySelector(`input.inp-celda[data-fila="${fromFilaId}"][data-dia="${d}"]`);
-              if (targetInp) {
-                targetInp.value = valorACopiar || '';
-                targetInp.dispatchEvent(new Event('input', { bubbles: true }));
-              }
-            }
-          } else {
-            const filas = Array.from(tabla.querySelectorAll('tr.fila-dato')).map(tr => tr.dataset.filaId);
-            const idxStart = filas.indexOf(fromFilaId);
-            const idxEnd = filas.indexOf(filaId);
-            if (idxStart !== -1 && idxEnd !== -1) {
-              const minIdx = Math.min(idxStart, idxEnd);
-              const maxIdx = Math.max(idxStart, idxEnd);
-              for (let f = minIdx; f <= maxIdx; f++) {
-                const currentFila = filas[f];
-                for (let d = minDia; d <= maxDia; d++) {
-                  const targetInp = tabla.querySelector(`input.inp-celda[data-fila="${currentFila}"][data-dia="${d}"]`);
-                  if (targetInp) {
-                    targetInp.value = valorACopiar || '';
-                    targetInp.dispatchEvent(new Event('input', { bubbles: true }));
-                  }
-                }
-              }
-            }
+        // Si estábamos en modo "Copiar hasta..." esperando celda destino:
+        if (opcionSeleccionada === 'rango' && celdaOrigenRango && celdaOrigenRango.inp !== inp) {
+          celdaDestinoRango = { filaId, dia, val, inp };
+          if ($mobInstruccion) {
+            $mobInstruccion.innerHTML = `✅ <strong>Rango listo:</strong> Copiar ${celdaOrigenRango.val} del Día ${celdaOrigenRango.dia} al Día ${dia}.`;
           }
-
-          DomHelpers.mostrarToast(`Celdas rellenadas con valor ${valorACopiar}.`, 'success');
-          resetModoRango();
+          if ($btnAplicar) $btnAplicar.disabled = false;
+          $mobOverlay.classList.remove('d-none');
+          return;
         }
 
         celdaActivaMobile = { filaId, dia, val, inp };
-        if ($mobLabel) {
-          if (modoCopiarRangoActivo) {
-            $mobLabel.innerHTML = `📍 <strong>Toca la celda destino para copiar [${celdaOrigenRango?.val || 0}]</strong>`;
-          } else {
-            $mobLabel.textContent = `Día ${dia}: [${val}]`;
-          }
+        if ($mobLabel) $mobLabel.textContent = `📋 Copiado Rápido — Día ${dia}: [${val}]`;
+
+        // Abrir modal solo si no estábamos capturando celda destino
+        if (opcionSeleccionada !== 'rango') {
+          $mobOverlay.classList.remove('d-none');
         }
-        $mobBar.classList.remove('d-none');
       };
 
       tabla.addEventListener('focusin', e => {
         if (!e.target.classList.contains('inp-celda')) return;
-        activarBarraMovil(e.target);
+        abrirModalCelda(e.target);
       });
 
       tabla.addEventListener('click', e => {
         const inp = e.target.closest('.inp-celda');
         if (!inp) return;
-        activarBarraMovil(inp);
+        abrirModalCelda(inp);
       });
 
-      if ($btnCerrar) {
-        $btnCerrar.onclick = () => {
-          resetModoRango();
-          $mobBar.classList.add('d-none');
-        };
-      }
+      if ($btnCerrar) $btnCerrar.onclick = () => resetModal();
+      if ($btnCancelar) $btnCancelar.onclick = () => resetModal();
 
-      if ($btnRango) {
-        $btnRango.onclick = () => {
-          if (!celdaActivaMobile) return;
+      if ($btnFila)  $btnFila.onclick  = () => seleccionarOpcion('fila', $btnFila);
+      if ($btn7Dias) $btn7Dias.onclick = () => seleccionarOpcion('7dias', $btn7Dias);
+      if ($btnRango) $btnRango.onclick = () => seleccionarOpcion('rango', $btnRango);
+      if ($btnCol)   $btnCol.onclick   = () => seleccionarOpcion('columna', $btnCol);
 
-          if (modoCopiarRangoActivo) {
-            resetModoRango();
-            if ($mobLabel) $mobLabel.textContent = `Día ${celdaActivaMobile.dia}: [${celdaActivaMobile.val}]`;
-            DomHelpers.mostrarToast('Modo "Copiar hasta..." cancelado.', 'info');
-          } else {
-            modoCopiarRangoActivo = true;
-            celdaOrigenRango = { ...celdaActivaMobile };
-            if (celdaOrigenRango.inp) celdaOrigenRango.inp.classList.add('inp-celda-origen');
-            $btnRango.innerHTML = '<i class="bi bi-x-circle me-1"></i>Cancelar';
-            $btnRango.classList.remove('btn-outline-primary');
-            $btnRango.classList.add('btn-danger');
-            if ($mobLabel) $mobLabel.innerHTML = `📍 <strong>Toca celda destino para copiar [${celdaOrigenRango.val}]</strong>`;
-            DomHelpers.mostrarToast(`Origen Día ${celdaOrigenRango.dia} (${celdaOrigenRango.val}). Ahora toca la celda destino.`, 'info');
+      // Botón "Aplicar Copiado"
+      if ($btnAplicar) {
+        $btnAplicar.onclick = () => {
+          if (!opcionSeleccionada || !celdaActivaMobile) return;
+          const val = celdaActivaMobile.val;
+
+          if (opcionSeleccionada === 'fila') {
+            const { filaId } = celdaActivaMobile;
+            dias.forEach(d => {
+              const targetInp = tabla.querySelector(`input.inp-celda[data-fila="${filaId}"][data-dia="${d}"]`);
+              if (targetInp) {
+                targetInp.value = val || '';
+                targetInp.dispatchEvent(new Event('input', { bubbles: true }));
+              }
+            });
+            DomHelpers.mostrarToast(`Fila rellenada con valor ${val}.`, 'success');
           }
-        };
-      }
+          else if (opcionSeleccionada === '7dias') {
+            const { filaId, dia } = celdaActivaMobile;
+            for (let d = dia; d <= Math.min(dia + 6, dias.length); d++) {
+              const targetInp = tabla.querySelector(`input.inp-celda[data-fila="${filaId}"][data-dia="${d}"]`);
+              if (targetInp) {
+                targetInp.value = val || '';
+                targetInp.dispatchEvent(new Event('input', { bubbles: true }));
+              }
+            }
+            DomHelpers.mostrarToast(`Copiado a los 7 días siguientes.`, 'success');
+          }
+          else if (opcionSeleccionada === 'rango' && celdaOrigenRango && celdaDestinoRango) {
+            const fromFilaId = celdaOrigenRango.filaId;
+            const fromDia = celdaOrigenRango.dia;
+            const toFilaId = celdaDestinoRango.filaId;
+            const toDia = celdaDestinoRango.dia;
+            const valorACopiar = celdaOrigenRango.val;
 
-      if ($btnFila) {
-        $btnFila.onclick = () => {
-          if (!celdaActivaMobile) return;
-          resetModoRango();
-          const { filaId, inp } = celdaActivaMobile;
-          const val = parseInt(inp.value) || 0;
-          dias.forEach(d => {
-            const targetInp = tabla.querySelector(`input.inp-celda[data-fila="${filaId}"][data-dia="${d}"]`);
-            if (targetInp) {
+            const minDia = Math.min(fromDia, toDia);
+            const maxDia = Math.max(fromDia, toDia);
+
+            if (fromFilaId === toFilaId) {
+              for (let d = minDia; d <= maxDia; d++) {
+                const targetInp = tabla.querySelector(`input.inp-celda[data-fila="${fromFilaId}"][data-dia="${d}"]`);
+                if (targetInp) {
+                  targetInp.value = valorACopiar || '';
+                  targetInp.dispatchEvent(new Event('input', { bubbles: true }));
+                }
+              }
+            } else {
+              const filas = Array.from(tabla.querySelectorAll('tr.fila-dato')).map(tr => tr.dataset.filaId);
+              const idxStart = filas.indexOf(fromFilaId);
+              const idxEnd = filas.indexOf(toFilaId);
+              if (idxStart !== -1 && idxEnd !== -1) {
+                const minIdx = Math.min(idxStart, idxEnd);
+                const maxIdx = Math.max(idxStart, idxEnd);
+                for (let f = minIdx; f <= maxIdx; f++) {
+                  const currentFila = filas[f];
+                  for (let d = minDia; d <= maxDia; d++) {
+                    const targetInp = tabla.querySelector(`input.inp-celda[data-fila="${currentFila}"][data-dia="${d}"]`);
+                    if (targetInp) {
+                      targetInp.value = valorACopiar || '';
+                      targetInp.dispatchEvent(new Event('input', { bubbles: true }));
+                    }
+                  }
+                }
+              }
+            }
+            DomHelpers.mostrarToast(`Celdas rellenadas con valor ${valorACopiar}.`, 'success');
+          }
+          else if (opcionSeleccionada === 'columna') {
+            const { dia } = celdaActivaMobile;
+            const targetInputs = tabla.querySelectorAll(`input.inp-celda[data-dia="${dia}"]`);
+            targetInputs.forEach(targetInp => {
               targetInp.value = val || '';
               targetInp.dispatchEvent(new Event('input', { bubbles: true }));
-            }
-          });
-          DomHelpers.mostrarToast(`Fila rellenada con valor ${val}.`, 'success');
-        };
-      }
-
-      if ($btn7Dias) {
-        $btn7Dias.onclick = () => {
-          if (!celdaActivaMobile) return;
-          resetModoRango();
-          const { filaId, dia, inp } = celdaActivaMobile;
-          const val = parseInt(inp.value) || 0;
-          for (let d = dia; d <= Math.min(dia + 6, dias.length); d++) {
-            const targetInp = tabla.querySelector(`input.inp-celda[data-fila="${filaId}"][data-dia="${d}"]`);
-            if (targetInp) {
-              targetInp.value = val || '';
-              targetInp.dispatchEvent(new Event('input', { bubbles: true }));
-            }
+            });
+            DomHelpers.mostrarToast(`Día ${dia} rellenado con valor ${val}.`, 'success');
           }
-          DomHelpers.mostrarToast(`Copiado a los 7 días siguientes.`, 'success');
-        };
-      }
 
-      if ($btnCol) {
-        $btnCol.onclick = () => {
-          if (!celdaActivaMobile) return;
-          resetModoRango();
-          const { dia, inp } = celdaActivaMobile;
-          const val = parseInt(inp.value) || 0;
-          const targetInputs = tabla.querySelectorAll(`input.inp-celda[data-dia="${dia}"]`);
-          targetInputs.forEach(targetInp => {
-            targetInp.value = val || '';
-            targetInp.dispatchEvent(new Event('input', { bubbles: true }));
-          });
-          DomHelpers.mostrarToast(`Día ${dia} rellenado con valor ${val}.`, 'success');
+          resetModal();
         };
       }
     }

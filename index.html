@@ -230,26 +230,47 @@
           </div>
         </div>
 
-        <!-- Toolbar Flotante de Copiado Rápido Móvil -->
-        <div id="fmt-mobile-copiar-bar" class="fmt-mobile-toolbar d-none shadow-lg">
-          <div class="d-flex align-items-center justify-content-between gap-2 px-3 py-2">
-            <span class="small fw-bold text-teal me-1" id="lbl-cell-focus-mobile">Celda activa</span>
-            <div class="d-flex gap-1 flex-wrap justify-content-end align-items-center">
-              <button id="btn-mob-copiar-fila" type="button" class="btn btn-sm btn-teal-action py-1 px-2" title="Copiar este número a todos los días de esta fila">
-                <i class="bi bi-arrow-right-short"></i>Rellenar Fila
-              </button>
-              <button id="btn-mob-copiar-7dias" type="button" class="btn btn-sm btn-outline-teal py-1 px-2" title="Copiar a los 7 días siguientes">
-                <i class="bi bi-calendar2-plus me-1"></i>+7 Días
-              </button>
-              <button id="btn-mob-copiar-rango" type="button" class="btn btn-sm btn-outline-primary py-1 px-2" title="Copiar desde esta celda hasta la celda que toques">
-                <i class="bi bi-pin-angle me-1"></i>Copiar hasta...
-              </button>
-              <button id="btn-mob-copiar-columna" type="button" class="btn btn-sm btn-outline-secondary py-1 px-2" title="Copiar a todos los exámenes de este día">
-                <i class="bi bi-arrow-down-short"></i>Rellenar Día
-              </button>
-              <button id="btn-mob-cerrar-bar" type="button" class="btn btn-sm btn-light text-muted p-1 ms-1" title="Cerrar">
-                <i class="bi bi-x-lg"></i>
-              </button>
+        <!-- Ventana Modal Centrada de Copiado Rápido Móvil -->
+        <div id="fmt-mobile-copiar-overlay" class="fmt-mobile-overlay d-none">
+          <div id="fmt-mobile-copiar-bar" class="fmt-mobile-modal-card shadow-lg">
+            <!-- Header -->
+            <div class="fmt-mobile-modal-header d-flex align-items-center justify-content-between px-3 py-2 border-bottom">
+              <span class="fw-bold text-teal small" id="lbl-cell-focus-mobile">📋 Copiado Rápido</span>
+              <button id="btn-mob-cerrar-bar" type="button" class="btn-close btn-close-sm" title="Cerrar"></button>
+            </div>
+
+            <!-- Cuerpo con Opciones Seleccionables -->
+            <div class="p-3">
+              <div class="text-muted small mb-2 fw-semibold" id="lbl-mob-instruccion">Seleccione una opción de copiado:</div>
+
+              <div class="fmt-mob-opciones-grid mb-3">
+                <button id="btn-mob-copiar-fila" type="button" class="btn fmt-opcion-btn text-start w-100 py-2 px-3 mb-2 d-flex align-items-center justify-content-between">
+                  <span><i class="bi bi-arrow-right-short text-teal me-2"></i>Rellenar Fila Completa</span>
+                  <i class="bi bi-circle check-icon text-muted"></i>
+                </button>
+                <button id="btn-mob-copiar-7dias" type="button" class="btn fmt-opcion-btn text-start w-100 py-2 px-3 mb-2 d-flex align-items-center justify-content-between">
+                  <span><i class="bi bi-calendar2-plus text-teal me-2"></i>Copiar a +7 Días Siguientes</span>
+                  <i class="bi bi-circle check-icon text-muted"></i>
+                </button>
+                <button id="btn-mob-copiar-rango" type="button" class="btn fmt-opcion-btn text-start w-100 py-2 px-3 mb-2 d-flex align-items-center justify-content-between">
+                  <span><i class="bi bi-pin-angle text-teal me-2"></i>Copiar hasta celda destino...</span>
+                  <i class="bi bi-circle check-icon text-muted"></i>
+                </button>
+                <button id="btn-mob-copiar-columna" type="button" class="btn fmt-opcion-btn text-start w-100 py-2 px-3 mb-2 d-flex align-items-center justify-content-between">
+                  <span><i class="bi bi-arrow-down-short text-teal me-2"></i>Rellenar Día Completo</span>
+                  <i class="bi bi-circle check-icon text-muted"></i>
+                </button>
+              </div>
+
+              <!-- Footer con botones Cancelar y Aplicar -->
+              <div class="d-flex align-items-center justify-content-end gap-2 pt-2 border-top">
+                <button id="btn-mob-cancelar-accion" type="button" class="btn btn-sm btn-outline-secondary px-3">
+                  Cancelar
+                </button>
+                <button id="btn-mob-aplicar-accion" type="button" class="btn btn-sm btn-teal-action px-3" disabled>
+                  <i class="bi bi-check-lg me-1"></i>Aplicar Copiado
+                </button>
+              </div>
             </div>
           </div>
         </div>
