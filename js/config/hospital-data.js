@@ -175,7 +175,10 @@ const HOSPITAL_AREAS = [
           {
             titulo: 'CONSULTA ESPECIAL',
             filas: [
-              { id: 'uro_ce_pediatria',     label: 'PAC. CONSULTA ESPECIAL',   esTotal: false },
+              /* ADAPTACION_FORMATO_V2_UROANALISIS_INICIO */
+              { id: 'uro_ce_pac_cons_especial', label: 'PAC. CONSULTA ESPECIAL',   esTotal: false },
+              { id: 'uro_ce_pediatria',         label: '  PEDIATRÍA',              esTotal: false },
+              /* ADAPTACION_FORMATO_V2_UROANALISIS_FIN */
               { id: 'uro_ce_cai',           label: '  CAI',                    esTotal: false },
               { id: 'uro_ce_ginecologia',   label: '  GINECOLOGÍA',            esTotal: false },
               { id: 'uro_ce_med_interna',   label: '  MEDICINA INTERNA',       esTotal: false },
@@ -747,9 +750,10 @@ function getSerologiaSuffix(nombreServicio) {
  * Obtiene el destino en los Formatos Estadísticos a partir de la key del examen y el nombre del servicio.
  * @param {string} examenKey
  * @param {string} servicioNombre
+ * @param {string} [filtroSeccion='todos'] – 'todos' | 'hospitalizados' | 'consulta_especial'
  * @returns {{ areaId: string, hojaId: string, filaExamenId: string|null, filaServicioId: string|null, filasServicioIds: string[] }|null}
  */
-function obtenerDestinoFormato(examenKey, servicioNombre) {
+function obtenerDestinoFormato(examenKey, servicioNombre, filtroSeccion = 'todos') {
   if (!examenKey) return null;
   const config = EXAMEN_KEY_MAP[examenKey];
   if (!config) return null;
@@ -779,6 +783,10 @@ function obtenerDestinoFormato(examenKey, servicioNombre) {
       area.hojas.forEach(hoja => {
         hoja.grupos.forEach((grupo, gIdx) => {
           if (gIdx > 0) { // Sub-grupos de detalle
+            const gTitulo = (grupo.titulo || '').toUpperCase();
+            if (filtroSeccion === 'hospitalizados' && !gTitulo.includes('HOSPITALIZADOS')) return;
+            if (filtroSeccion === 'consulta_especial' && !gTitulo.includes('CONSULTA ESPECIAL')) return;
+
             grupo.filas.forEach(f => {
               if (!f.esTotal) {
                 const fLabel = f.label.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');

@@ -271,6 +271,17 @@
 
               <!-- Panel desplegable para seleccionar Exámenes del Área en Copiado Rápido -->
               <div id="fmt-panel-examenes-area" class="border rounded p-2 bg-light mb-3 d-none">
+                <!-- Filtro de Sección (Solo Hematología y Uroanálisis) -->
+                <div id="contenedor-filtro-copiado-seccion" class="mb-2 d-none pb-2 border-bottom">
+                  <label for="copiado-filtro-seccion" class="form-label small fw-bold text-teal-dark mb-1">
+                    <i class="bi bi-funnel-fill me-1"></i>Filtrar por Sección:
+                  </label>
+                  <select class="form-select form-select-sm input-custom" id="copiado-filtro-seccion">
+                    <option value="todos" selected>🏥 Ambos / Todos los Servicios</option>
+                    <option value="hospitalizados">🏥 Solo Pacientes Hospitalizados</option>
+                    <option value="consulta_especial">🩺 Solo Consulta Especial</option>
+                  </select>
+                </div>
                 <div class="d-flex justify-content-between align-items-center mb-2">
                   <span class="small fw-bold text-teal" id="lbl-area-multiplicador">Exámenes del Área</span>
                   <div>
@@ -449,6 +460,19 @@
                       <option value="coproanalisis">💩 COPROANÁLISIS</option>
                       <option value="serologia">🔬 SEROLOGÍA / QUÍMICA</option>
                     </select>
+                  </div>
+
+                  <!-- Filtro de Sección (Solo visible para Hematología y Uroanálisis) -->
+                  <div class="mb-3 d-none" id="contenedor-filtro-seccion-paciente">
+                    <label for="paciente-filtro-seccion" class="form-label fw-semibold text-teal-dark">
+                      <i class="bi bi-funnel-fill me-1"></i>Filtro de Sección (Formato)
+                    </label>
+                    <select class="form-select input-custom" id="paciente-filtro-seccion">
+                      <option value="todos" selected>🏥 Ambos / Todos los Servicios</option>
+                      <option value="hospitalizados">🏥 Solo Pacientes Hospitalizados</option>
+                      <option value="consulta_especial">🩺 Solo Consulta Especial</option>
+                    </select>
+                    <div class="form-text small text-muted">Permite registrar solo en Hospitalizados, Consulta Especial o en Ambos.</div>
                   </div>
 
                   <div class="mb-3">
@@ -664,12 +688,22 @@
       <div class="card-body p-4">
         <p class="text-muted small mb-3">Suba una imagen o tome una foto de la planilla. La Inteligencia Artificial analizará el texto e inyectará los conteos automáticamente en el formato actual.</p>
 
-        <!-- Dropzone de archivo de imagen -->
+        <!-- Dropzone / Selección de archivo de imagen -->
         <div id="escaner-dropzone" class="border border-2 border-dashed rounded-3 p-4 text-center mb-3 style-dropzone" style="cursor: pointer; background-color: #f8fafc; border-color: #cbd5e1 !important;">
-          <div class="mb-2" style="font-size: 2.2rem;">📷</div>
-          <p class="fw-bold mb-1 text-teal-dark">Arrastre la foto aquí o haga clic para seleccionar</p>
-          <p class="text-muted small mb-0">Soporta JPG, PNG, WEBP de celular o cámara</p>
-          <input type="file" id="inp-foto-planilla" accept="image/*" capture="environment" class="d-none">
+          <div class="mb-2" style="font-size: 2.2rem;">📷 🖼️</div>
+          <p class="fw-bold mb-1 text-teal-dark">Arrastre la foto aquí o elija una opción:</p>
+          <div class="d-flex justify-content-center gap-2 mt-3 flex-wrap">
+            <button type="button" id="btn-escaner-camara" class="btn btn-teal-action btn-sm px-3">
+              <i class="bi bi-camera-fill me-1"></i>Tomar Foto (Cámara)
+            </button>
+            <button type="button" id="btn-escaner-galeria" class="btn btn-outline-teal btn-sm px-3">
+              <i class="bi bi-images me-1"></i>Buscar en Galería
+            </button>
+          </div>
+          <p class="text-muted small mt-2 mb-0">Soporta JPG, PNG, WEBP de celular o computadora</p>
+          <input type="file" id="inp-foto-camara" accept="image/*" capture="environment" class="d-none">
+          <input type="file" id="inp-foto-galeria" accept="image/*" class="d-none">
+          <input type="file" id="inp-foto-planilla" accept="image/*" class="d-none">
         </div>
 
         <!-- Vista previa de la foto cargada -->

@@ -273,7 +273,7 @@ class FormatosController {
       if (!ex || !srv) return;
 
       const keyEx = ex.key || inferirExamenKey(ex.nombre);
-      const destino = obtenerDestinoFormato(keyEx, srv.nombre);
+      const destino = obtenerDestinoFormato(keyEx, srv.nombre, p.filtroSeccion || 'todos');
 
       if (destino) {
         const { areaId, hojaId, filaExamenId, filasServicioIds } = destino;

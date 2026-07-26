@@ -452,6 +452,9 @@ class FormatosView {
       if ($mobOverlay) $mobOverlay.classList.add('d-none');
     };
 
+    const $cntFiltroCop = document.getElementById('contenedor-filtro-copiado-seccion');
+    const $selFiltroCop = document.getElementById('copiado-filtro-seccion');
+
     const poblarCheckboxesExamenesArea = () => {
       if (!$cntChksExm) return;
       $cntChksExm.innerHTML = '';
@@ -460,9 +463,25 @@ class FormatosView {
         $lblAreaMult.textContent = `Exámenes del Área (${area.label} — Factor: ${mult}x)`;
       }
 
+      const esAreaFiltro = area.id === 'hematologia' || area.id === 'uroanalisis';
+      if ($cntFiltroCop) {
+        if (esAreaFiltro) {
+          $cntFiltroCop.classList.remove('d-none');
+        } else {
+          $cntFiltroCop.classList.add('d-none');
+          if ($selFiltroCop) $selFiltroCop.value = 'todos';
+        }
+      }
+
+      const filtroVal = (esAreaFiltro && $selFiltroCop) ? $selFiltroCop.value : 'todos';
+
       // Recopilar todas las filas que no sean totales
       const filasDisponibles = [];
-      hoja.grupos.forEach(grupo => {
+      hoja.grupos.forEach((grupo, gIdx) => {
+        const gTitulo = (grupo.titulo || '').toUpperCase();
+        if (filtroVal === 'hospitalizados' && gIdx > 0 && !gTitulo.includes('HOSPITALIZADOS')) return;
+        if (filtroVal === 'consulta_especial' && gIdx > 0 && !gTitulo.includes('CONSULTA ESPECIAL')) return;
+
         grupo.filas.forEach(f => {
           if (!f.esTotal) filasDisponibles.push(f);
         });
@@ -481,6 +500,10 @@ class FormatosView {
         $cntChksExm.appendChild(colDiv);
       });
     };
+
+    if ($selFiltroCop) {
+      $selFiltroCop.onchange = () => poblarCheckboxesExamenesArea();
+    }
 
     if ($btnSelTodos) {
       $btnSelTodos.onclick = () => {
@@ -884,6 +907,10 @@ class FormatosView {
     const $modal       = document.getElementById('modal-escaner-foto');
     const $btnCerrar   = document.getElementById('btn-cerrar-escaner');
     const $dropzone    = document.getElementById('escaner-dropzone');
+    const $btnCamara   = document.getElementById('btn-escaner-camara');
+    const $btnGaleria  = document.getElementById('btn-escaner-galeria');
+    const $inpCamara   = document.getElementById('inp-foto-camara');
+    const $inpGaleria  = document.getElementById('inp-foto-galeria');
     const $inpFoto     = document.getElementById('inp-foto-planilla');
     const $previewWrap = document.getElementById('contenedor-preview-foto');
     const $imgPreview  = document.getElementById('img-preview-foto');
@@ -916,7 +943,9 @@ class FormatosView {
     };
 
     const resetForm = () => {
-      $inpFoto.value = '';
+      if ($inpFoto) $inpFoto.value = '';
+      if ($inpCamara) $inpCamara.value = '';
+      if ($inpGaleria) $inpGaleria.value = '';
       $previewWrap.classList.add('d-none');
       $dropzone.classList.remove('d-none');
       $progWrap.classList.add('d-none');
@@ -929,7 +958,25 @@ class FormatosView {
     $btnCerrar.addEventListener('click', cerrarModal);
     $btnReemplaz.addEventListener('click', () => resetForm());
 
-    $dropzone.addEventListener('click', () => $inpFoto.click());
+    if ($btnCamara && $inpCamara) {
+      $btnCamara.addEventListener('click', (e) => {
+        e.stopPropagation();
+        $inpCamara.click();
+      });
+    }
+
+    if ($btnGaleria && $inpGaleria) {
+      $btnGaleria.addEventListener('click', (e) => {
+        e.stopPropagation();
+        $inpGaleria.click();
+      });
+    }
+
+    $dropzone.addEventListener('click', (e) => {
+      if (e.target.closest('#btn-escaner-camara') || e.target.closest('#btn-escaner-galeria')) return;
+      if ($inpGaleria) $inpGaleria.click();
+      else if ($inpFoto) $inpFoto.click();
+    });
 
     $dropzone.addEventListener('dragover', e => { e.preventDefault(); $dropzone.style.borderColor = 'var(--teal)'; });
     $dropzone.addEventListener('dragleave', e => { e.preventDefault(); $dropzone.style.borderColor = '#cbd5e1'; });
@@ -940,10 +987,13 @@ class FormatosView {
       }
     });
 
-    $inpFoto.addEventListener('change', () => {
-      if ($inpFoto.files && $inpFoto.files[0]) {
-        procesarArchivo($inpFoto.files[0]);
-      }
+    [$inpCamara, $inpGaleria, $inpFoto].forEach(inp => {
+      if (!inp) return;
+      inp.addEventListener('change', () => {
+        if (inp.files && inp.files[0]) {
+          procesarArchivo(inp.files[0]);
+        }
+      });
     });
 
     const procesarArchivo = async (file) => {

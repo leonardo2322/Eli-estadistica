@@ -152,6 +152,8 @@ class AppView {
     this.$pacId           = document.getElementById('paciente-registro-id');
     this.$pacFecha        = document.getElementById('paciente-fecha');
     this.$selArea         = document.getElementById('paciente-area');
+    this.$cntFiltroSeccionPac = document.getElementById('contenedor-filtro-seccion-paciente');
+    this.$selFiltroSeccionPac = document.getElementById('paciente-filtro-seccion');
     this.$selServicio     = document.getElementById('paciente-servicio');
     this.$selExamen       = document.getElementById('paciente-examen');
     this.$pacCantidad     = document.getElementById('paciente-cantidad');
@@ -562,6 +564,15 @@ class AppView {
         serviciosFiltrados = servicios.filter(s => (s.areaId === areaSeleccionada || esServicioDeArea(s.nombre, areaSeleccionada)));
       }
 
+      if (this.$cntFiltroSeccionPac) {
+        if (areaSeleccionada === 'hematologia' || areaSeleccionada === 'uroanalisis') {
+          this.$cntFiltroSeccionPac.classList.remove('d-none');
+        } else {
+          this.$cntFiltroSeccionPac.classList.add('d-none');
+          if (this.$selFiltroSeccionPac) this.$selFiltroSeccionPac.value = 'todos';
+        }
+      }
+
       DomHelpers.reconstruirSelect(this.$selExamen, examenesFiltrados, 'Seleccione un examen...', 'id', 'nombre');
       DomHelpers.reconstruirSelect(this.$selServicio, serviciosFiltrados, 'Seleccione un servicio...', 'id', 'nombre');
       if (this._calcFn) this._calcFn();
@@ -719,6 +730,10 @@ class AppView {
       const examNombre = exmObj ? exmObj.nombre : 'Examen';
       const cantidad = parseInt(this.$pacCantidad.value) || 1;
       const total = parseFloat(this.$pacTotal.value) || 0;
+      const areaVal = this.$selArea ? this.$selArea.value : '';
+      const filtroSeccion = (this.$selFiltroSeccionPac && (areaVal === 'hematologia' || areaVal === 'uroanalisis'))
+        ? this.$selFiltroSeccionPac.value
+        : 'todos';
 
       this.colaRegistros.push({
         id: null,
@@ -727,6 +742,7 @@ class AppView {
         examenId: this.$selExamen.value,
         cantidad,
         total,
+        filtroSeccion,
         servNombre,
         examNombre
       });
@@ -780,13 +796,19 @@ class AppView {
         return;
       }
 
+      const areaVal = this.$selArea ? this.$selArea.value : '';
+      const filtroSeccion = (this.$selFiltroSeccionPac && (areaVal === 'hematologia' || areaVal === 'uroanalisis'))
+        ? this.$selFiltroSeccionPac.value
+        : 'todos';
+
       handler({
         id:             this.$pacId.value || null,
         fecha:          this.$pacFecha.value,
         servicioId:     this.$selServicio.value,
         examenId:       this.$selExamen.value,
         cantidad:       parseInt(this.$pacCantidad.value) || 1,
-        total:          parseFloat(this.$pacTotal.value)  || 0
+        total:          parseFloat(this.$pacTotal.value)  || 0,
+        filtroSeccion
       });
       this.clearPacForm();
     });
