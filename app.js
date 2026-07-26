@@ -58,23 +58,33 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
 
-    // Conectar los controladores: el Resumen del Día es la base central para los Formatos
-    const sincronizarFecha = (fecha) => {
-      formatosCtrl.sincronizarDesdeResumen(
-        fecha,
-        bioRepo.obtenerPacientes(),
-        bioRepo.obtenerExamenes(),
-        bioRepo.obtenerServicios()
-      );
+    // Conectar los controladores: preservar y sumar sobre celdas existentes de Formatos
+    const sincronizarRegistro = (fecha, registros, esEliminacion) => {
+      if (registros) {
+        formatosCtrl.incrementarFormatosDesdeRegistro(
+          registros,
+          bioRepo.obtenerExamenes(),
+          bioRepo.obtenerServicios(),
+          esEliminacion
+        );
+      } else {
+        formatosCtrl.sincronizarDesdeResumen(
+          fecha,
+          bioRepo.obtenerPacientes(),
+          bioRepo.obtenerExamenes(),
+          bioRepo.obtenerServicios()
+        );
+      }
     };
 
-    bioCtrl.setOnSincronizarFormatos(sincronizarFecha);
+    bioCtrl.setOnSincronizarFormatos(sincronizarRegistro);
     bioCtrl.setOnMantenimientoCambiado((idEliminado) => {
       formatosCtrl.notificarMantenimientoCambiado(idEliminado);
     });
 
     // Sincronización inicial para la fecha actual al arrancar
-    sincronizarFecha(DateUtils.getHoy());
+    sincronizarRegistro(DateUtils.getHoy());
   });
+
 
 });

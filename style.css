@@ -1494,3 +1494,310 @@ td:hover .cell-fill-handle,
   border-color: rgba(13, 148, 136, 0.25) !important;
 }
 
+/* =========================================================================
+   PANEL DE CONFIRMACIÓN DE OCR CON APRENDIZAJE ADAPTATIVO
+   =========================================================================
+   Estilos para el panel interactivo que le pregunta al usuario si los
+   textos reconocidos por el OCR son correctos o necesitan corrección.
+   ========================================================================= */
+
+.ocr-aprendizaje-panel {
+  font-family: 'Inter', sans-serif;
+  padding: 0;
+}
+
+/* Encabezado del panel */
+.ocr-confirm-header {
+  padding: 1rem 1.25rem 0.75rem;
+  border-bottom: 1px solid #e2e8f0;
+  background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
+  border-radius: 10px 10px 0 0;
+}
+
+.ocr-confirm-header h4 {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #0f766e;
+  margin: 0 0 0.25rem 0;
+}
+
+.ocr-confirm-subtitulo {
+  font-size: 0.8rem;
+  color: #64748b;
+  margin: 0 0 0.5rem 0;
+  line-height: 1.4;
+}
+
+/* Badge que muestra cuánto aprendió el sistema */
+.badge-aprendizaje {
+  display: inline-block;
+  background: #0d9488;
+  color: white;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.2rem 0.6rem;
+  border-radius: 20px;
+  margin-top: 0.25rem;
+}
+
+.badge-aprendizaje.nuevo {
+  background: #94a3b8;
+}
+
+/* Lista de filas detectadas */
+.ocr-confirm-lista {
+  padding: 0.5rem;
+  max-height: 320px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.ocr-sin-datos {
+  text-align: center;
+  color: #94a3b8;
+  padding: 1.5rem;
+  font-size: 0.85rem;
+}
+
+/* Tarjeta individual de una fila detectada */
+.ocr-confirm-item {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 0.65rem 0.75rem;
+  transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+}
+
+/* Estado: fila confirmada correcta */
+.ocr-confirm-item.confirmada {
+  border-color: #10b981;
+  background: #f0fdf4;
+  box-shadow: 0 0 0 1px rgba(16,185,129,0.2);
+}
+
+/* Estado: fila corregida por el usuario */
+.ocr-confirm-item.corregida {
+  border-color: #0d9488;
+  background: #ecfdf5;
+}
+
+/* Estado: se aplicó una corrección automática aprendida */
+.ocr-confirm-item.con-correccion-auto {
+  border-left: 3px solid #f59e0b;
+}
+
+.ocr-item-header {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+/* Número de orden de la fila */
+.ocr-item-numero {
+  background: #0d9488;
+  color: white;
+  font-size: 0.7rem;
+  font-weight: 700;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.ocr-item-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.ocr-item-etiqueta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.ocr-label-texto {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+/* Etiqueta "Auto-corregido" */
+.tag-auto {
+  font-size: 0.68rem;
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fde68a;
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+/* Etiqueta de sugerencia "Era esto?" */
+.tag-sugerencia {
+  font-size: 0.68rem;
+  background: #ede9fe;
+  color: #5b21b6;
+  border: 1px solid #c4b5fd;
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+}
+
+.ocr-item-valores {
+  margin-top: 0.15rem;
+}
+
+.ocr-valores-texto {
+  font-size: 0.72rem;
+  color: #94a3b8;
+}
+
+/* Controles (botones Correcto / Corregir) */
+.ocr-item-controles {
+  display: flex;
+  gap: 0.3rem;
+  flex-shrink: 0;
+}
+
+.btn-ocr-accion {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.25rem 0.6rem;
+  border-radius: 6px;
+  border: 1px solid;
+  cursor: pointer;
+  transition: all 0.18s;
+}
+
+/* Botón "Correcto" */
+.btn-confirmar-fila {
+  background: #f0fdf4;
+  color: #16a34a;
+  border-color: #86efac;
+}
+.btn-confirmar-fila:hover {
+  background: #16a34a;
+  color: white;
+}
+
+/* Botón "Corregir" */
+.btn-corregir-fila {
+  background: #fff7ed;
+  color: #ea580c;
+  border-color: #fed7aa;
+}
+.btn-corregir-fila:hover {
+  background: #ea580c;
+  color: white;
+}
+
+/* Panel expandible de corrección */
+.ocr-correccion-panel {
+  margin-top: 0.6rem;
+  padding: 0.6rem 0.75rem;
+  background: #fefce8;
+  border-radius: 6px;
+  border: 1px solid #fde68a;
+}
+
+.ocr-correccion-label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #92400e;
+  margin-bottom: 0.35rem;
+}
+
+.ocr-correccion-input {
+  width: 100%;
+  padding: 0.35rem 0.6rem;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  color: #1e293b;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.ocr-correccion-input:focus {
+  border-color: #0d9488;
+  box-shadow: 0 0 0 2px rgba(13,148,136,0.2);
+}
+
+.ocr-correccion-botones {
+  display: flex;
+  gap: 0.4rem;
+  margin-top: 0.4rem;
+}
+
+/* Botón "Guardar y Aprender" */
+.btn-ocr-guardar-correccion {
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.3rem 0.7rem;
+  background: #0d9488;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.18s;
+}
+.btn-ocr-guardar-correccion:hover {
+  background: #0f766e;
+}
+
+/* Botón "Cancelar" corrección */
+.btn-ocr-cancelar-correccion {
+  font-size: 0.75rem;
+  padding: 0.3rem 0.6rem;
+  background: transparent;
+  color: #64748b;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btn-ocr-cancelar-correccion:hover {
+  background: #f1f5f9;
+  color: #1e293b;
+}
+
+/* Sección de acciones del panel (botón Confirmar Todo) */
+.ocr-confirm-acciones {
+  padding: 0.75rem 1rem 0.85rem;
+  border-top: 1px solid #e2e8f0;
+  background: #f8fafc;
+  border-radius: 0 0 10px 10px;
+  text-align: center;
+}
+
+/* Botón principal "Confirmar Todo y Aplicar" */
+.btn-ocr-confirmar {
+  background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%);
+  color: white;
+  font-size: 0.85rem;
+  font-weight: 700;
+  padding: 0.55rem 1.4rem;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 2px 8px rgba(13,148,136,0.3);
+  width: 100%;
+}
+.btn-ocr-confirmar:hover {
+  background: linear-gradient(135deg, #0f766e 0%, #115e59 100%);
+  box-shadow: 0 4px 14px rgba(13,148,136,0.45);
+  transform: translateY(-1px);
+}
+
+/* Nota informativa debajo del botón */
+.ocr-confirm-nota {
+  font-size: 0.72rem;
+  color: #94a3b8;
+  margin: 0.4rem 0 0 0;
+}

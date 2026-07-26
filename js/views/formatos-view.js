@@ -606,34 +606,38 @@ class FormatosView {
             chksSeleccionados.forEach(fId => {
               const targetInp = tabla.querySelector(`input.inp-celda[data-fila="${fId}"][data-dia="${dia}"]`);
               if (targetInp) {
-                targetInp.value = valExamenes || '';
+                const valExistente = parseInt(targetInp.value) || 0;
+                const nuevoVal = valExistente + valExamenes;
+                targetInp.value = nuevoVal || '';
                 targetInp.dispatchEvent(new Event('input', { bubbles: true }));
               }
             });
 
-            DomHelpers.mostrarToast(`Copiado aplicado a ${chksSeleccionados.length} exámenes para el Día ${dia} (Valor: ${valExamenes} = ${val} x ${mult}).`, 'success');
+            DomHelpers.mostrarToast(`Copiado aplicado a ${chksSeleccionados.length} exámenes para el Día ${dia} (+${valExamenes} sumado a valores existentes).`, 'success');
           }
           else if (opcionSeleccionada === 'fila') {
             const { filaId } = celdaActivaMobile;
             dias.forEach(d => {
               const targetInp = tabla.querySelector(`input.inp-celda[data-fila="${filaId}"][data-dia="${d}"]`);
               if (targetInp) {
-                targetInp.value = val || '';
+                const valExistente = parseInt(targetInp.value) || 0;
+                targetInp.value = (valExistente + val) || '';
                 targetInp.dispatchEvent(new Event('input', { bubbles: true }));
               }
             });
-            DomHelpers.mostrarToast(`Fila rellenada con valor ${val}.`, 'success');
+            DomHelpers.mostrarToast(`Fila rellenada sumando ${val} a valores existentes.`, 'success');
           }
           else if (opcionSeleccionada === '7dias') {
             const { filaId, dia } = celdaActivaMobile;
             for (let d = dia; d <= Math.min(dia + 6, dias.length); d++) {
               const targetInp = tabla.querySelector(`input.inp-celda[data-fila="${filaId}"][data-dia="${d}"]`);
               if (targetInp) {
-                targetInp.value = val || '';
+                const valExistente = parseInt(targetInp.value) || 0;
+                targetInp.value = (valExistente + val) || '';
                 targetInp.dispatchEvent(new Event('input', { bubbles: true }));
               }
             }
-            DomHelpers.mostrarToast(`Copiado a los 7 días siguientes.`, 'success');
+            DomHelpers.mostrarToast(`Copiado a los 7 días siguientes sumando ${val}.`, 'success');
           }
           else if (opcionSeleccionada === 'rango' && celdaOrigenRango && celdaDestinoRango) {
             const fromFilaId = celdaOrigenRango.filaId;
@@ -649,7 +653,8 @@ class FormatosView {
               for (let d = minDia; d <= maxDia; d++) {
                 const targetInp = tabla.querySelector(`input.inp-celda[data-fila="${fromFilaId}"][data-dia="${d}"]`);
                 if (targetInp) {
-                  targetInp.value = valorACopiar || '';
+                  const valExistente = parseInt(targetInp.value) || 0;
+                  targetInp.value = (valExistente + valorACopiar) || '';
                   targetInp.dispatchEvent(new Event('input', { bubbles: true }));
                 }
               }
@@ -665,28 +670,31 @@ class FormatosView {
                   for (let d = minDia; d <= maxDia; d++) {
                     const targetInp = tabla.querySelector(`input.inp-celda[data-fila="${currentFila}"][data-dia="${d}"]`);
                     if (targetInp) {
-                      targetInp.value = valorACopiar || '';
+                      const valExistente = parseInt(targetInp.value) || 0;
+                      targetInp.value = (valExistente + valorACopiar) || '';
                       targetInp.dispatchEvent(new Event('input', { bubbles: true }));
                     }
                   }
                 }
               }
             }
-            DomHelpers.mostrarToast(`Celdas rellenadas con valor ${valorACopiar}.`, 'success');
+            DomHelpers.mostrarToast(`Celdas rellenadas sumando ${valorACopiar}.`, 'success');
           }
           else if (opcionSeleccionada === 'columna') {
             const { dia } = celdaActivaMobile;
             const targetInputs = tabla.querySelectorAll(`input.inp-celda[data-dia="${dia}"]`);
             targetInputs.forEach(targetInp => {
-              targetInp.value = val || '';
+              const valExistente = parseInt(targetInp.value) || 0;
+              targetInp.value = (valExistente + val) || '';
               targetInp.dispatchEvent(new Event('input', { bubbles: true }));
             });
-            DomHelpers.mostrarToast(`Día ${dia} rellenado con valor ${val}.`, 'success');
+            DomHelpers.mostrarToast(`Día ${dia} rellenado sumando ${val}.`, 'success');
           }
 
           resetModal();
         };
       }
+
     }
   }
 
@@ -970,18 +978,64 @@ class FormatosView {
         $progWrap.classList.add('d-none');
         $resWrap.classList.remove('d-none');
 
-        $tbodyRes.innerHTML = '';
-        if (!resumenLineas.length) {
-          $tbodyRes.innerHTML = `<tr><td colspan="2" class="text-muted text-center py-2">No se detectaron filas de conteo en la foto. Intente con una imagen más clara.</td></tr>`;
+        // ------------------------------------------------------------------
+        // Mostrar el Panel de Confirmación Interactivo de OcrAprendizaje.
+        // En lugar de solo listar lo que se detectó, ahora preguntamos al
+        // usuario si cada etiqueta reconocida es correcta o necesita corrección.
+        // Cada corrección que haga se guarda en localStorage y mejora
+        // el reconocimiento automático en futuros escaneos.
+        // ------------------------------------------------------------------
+        $tbodyRes.innerHTML = '';  // limpiar tabla anterior
+
+        if (typeof OcrAprendizaje !== 'undefined') {
+          // Usar el panel interactivo de aprendizaje
+          const panelConfirmacion = OcrAprendizaje.crearPanelConfirmacion(
+            resumenLineas,
+
+            // Callback: el usuario presionó "Confirmar Todo"
+            (estadoFilas) => {
+              // Reconstruir datosExtraidos respetando los labels corregidos por el usuario
+              // (los números ya vienen bien, solo actualizamos las filaIds si hubo correcciones)
+              if (onAplicarFoto) {
+                onAplicarFoto(datosExtraidosTemporal);
+              }
+              cerrarModal();
+              DomHelpers.mostrarToast('Datos de la foto aplicados al formato.', 'success');
+            },
+
+            // Callback: el usuario corrigió una etiqueta individual
+            ({ filaId, textoAntes, textoDespues }) => {
+              // El aprendizaje ya fue guardado dentro de OcrAprendizaje.crearPanelConfirmacion.
+              // Aquí podríamos hacer acciones adicionales si fuera necesario.
+              console.log(`[Formatos] Correccion registrada: "${textoAntes}" -> "${textoDespues}"`);
+            }
+          );
+
+          if (!resumenLineas.length) {
+            // Si no hay resultados, mostrar mensaje amigable en lugar del panel
+            $tbodyRes.innerHTML = `<p class="text-muted text-center py-2">No se detectaron filas de conteo en la foto. Intente con una imagen más clara.</p>`;
+            // El botón "Aplicar" original funciona normalmente cuando no hay datos
+            $btnAplicar.style.display = '';
+          } else {
+            // Ocultar el botón "Aplicar" original (el panel tiene su propio botón "Confirmar Todo")
+            $btnAplicar.style.display = 'none';
+            $tbodyRes.appendChild(panelConfirmacion);
+          }
         } else {
-          resumenLineas.forEach(linea => {
-            const valsStr = linea.numeros.join(', ');
-            $tbodyRes.appendChild(DomHelpers.crearFila(`
-              <td class="fw-semibold text-teal-dark">${DomHelpers.esc(linea.label)}</td>
-              <td class="small text-muted">${valsStr}</td>
-            `));
-          });
+          // Fallback: mostrar tabla simple si OcrAprendizaje no está disponible
+          if (!resumenLineas.length) {
+            $tbodyRes.innerHTML = `<tr><td colspan="2" class="text-muted text-center py-2">No se detectaron filas de conteo en la foto. Intente con una imagen más clara.</td></tr>`;
+          } else {
+            resumenLineas.forEach(linea => {
+              const valsStr = linea.numeros.join(', ');
+              $tbodyRes.appendChild(DomHelpers.crearFila(`
+                <td class="fw-semibold text-teal-dark">${DomHelpers.esc(linea.label)}</td>
+                <td class="small text-muted">${valsStr}</td>
+              `));
+            });
+          }
         }
+
       } catch (err) {
         $progWrap.classList.add('d-none');
         DomHelpers.mostrarToast(err.message || 'Error al procesar la imagen.', 'error');
@@ -989,6 +1043,7 @@ class FormatosView {
       }
     };
 
+    // Botón "Aplicar al Formato" original (solo visible en fallback sin OcrAprendizaje)
     $btnAplicar.addEventListener('click', () => {
       if (datosExtraidosTemporal && onAplicarFoto) {
         onAplicarFoto(datosExtraidosTemporal);

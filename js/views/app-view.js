@@ -159,7 +159,6 @@ class AppView {
     this.$btnSavePac      = document.getElementById('btn-guardar-paciente');
     this.$btnCancelPac    = document.getElementById('btn-cancelar-paciente');
     this.$tituloPacForm   = document.getElementById('titulo-form-paciente');
-    this.$btnFinalizarTurno = document.getElementById('btn-finalizar-turno');
 
     // Cola multi-examen
     this.$btnAgregarPac   = document.getElementById('btn-agregar-paciente');
@@ -792,12 +791,6 @@ class AppView {
       this.clearPacForm();
     });
     this.$btnCancelPac.addEventListener('click', () => this.clearPacForm());
-  }
-
-  bindFinalizarTurno(handler) {
-    if (this.$btnFinalizarTurno) {
-      this.$btnFinalizarTurno.addEventListener('click', () => handler());
-    }
   }
 
   bindFiltros(onChange) {

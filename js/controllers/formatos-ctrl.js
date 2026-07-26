@@ -247,44 +247,29 @@ class FormatosController {
   // ─────────────────────────────────────────────────────────────
 
   /**
-   * Sincroniza las celdas de los Formatos Estadísticos para una fecha determinada
-   * basándose en los registros de atención acumulados del día.
+  /**
+   * Incrementa (o decrementa si es eliminación) el valor de las celdas de Formatos
+   * para las filas de servicio y examen afectadas por uno o varios registros de atención.
+   * PRESERVA y SUMA sobre cualquier valor previamente guardado en las celdas de Formatos.
    *
-   * @param {string} fecha – Fecha en formato 'YYYY-MM-DD'
-   * @param {Array} registrosAtencion – Array completo de registros de atención
-   * @param {Array} examenesCat – Catálogo de exámenes de Bioanálisis
-   * @param {Array} serviciosCat – Catálogo de servicios de Bioanálisis
+   * @param {object|Array} d – Registro o Array de registros { fecha, servicioId, examenId, cantidad, total }
+   * @param {Array} examenesCat – Catálogo de exámenes
+   * @param {Array} serviciosCat – Catálogo de servicios
+   * @param {boolean} [esEliminacion=false] – Si es true, restará la cantidad/total
    */
-  sincronizarDesdeResumen(fecha, registrosAtencion, examenesCat, serviciosCat) {
-    if (!fecha) return;
-    const { ano, mes, dia } = DateUtils.parsearFecha(fecha);
-    const turnoId = DateUtils.getTurnoActual();
+  incrementarFormatosDesdeRegistro(d, examenesCat, serviciosCat, esEliminacion = false) {
+    const lista = Array.isArray(d) ? d : [d];
+    if (!lista.length) return;
 
-    // 1. Identificar todos los destinos en Formatos posibles para inicializar/resetear
-    const celdasAfectadasKeys = new Set();
-    const acumuladorCeldas = {};
+    const factor = esEliminacion ? -1 : 1;
 
-    (examenesCat || []).forEach(ex => {
-      (serviciosCat || []).forEach(srv => {
-        const keyEx = ex.key || inferirExamenKey(ex.nombre);
-        const dest = obtenerDestinoFormato(keyEx, srv.nombre);
-        if (dest) {
-          (dest.filasServicioIds || []).forEach(fSrvId => {
-            if (fSrvId) celdasAfectadasKeys.add(`${dest.areaId}|${dest.hojaId}|${fSrvId}`);
-          });
-          if (dest.filaExamenId) celdasAfectadasKeys.add(`${dest.areaId}|${dest.hojaId}|${dest.filaExamenId}`);
-        }
-      });
-    });
+    lista.forEach(p => {
+      if (!p.fecha) return;
+      const { ano, mes, dia } = DateUtils.parsearFecha(p.fecha);
+      const turnoId = DateUtils.getTurnoActual();
 
-    celdasAfectadasKeys.forEach(k => { acumuladorCeldas[k] = 0; });
-
-    // 2. Acumular los totales de los registros de atención para la fecha dada
-    const pacsDelDia = (registrosAtencion || []).filter(p => p.fecha === fecha);
-
-    pacsDelDia.forEach(p => {
-      const ex = examenesCat.find(e => e.id === p.examenId);
-      const srv = serviciosCat.find(s => s.id === p.servicioId);
+      const ex = (examenesCat || []).find(e => e.id === p.examenId);
+      const srv = (serviciosCat || []).find(s => s.id === p.servicioId);
       if (!ex || !srv) return;
 
       const keyEx = ex.key || inferirExamenKey(ex.nombre);
@@ -292,37 +277,44 @@ class FormatosController {
 
       if (destino) {
         const { areaId, hojaId, filaExamenId, filasServicioIds } = destino;
-        const cant = parseInt(p.cantidad) || 1;
+        const cant = (parseInt(p.cantidad) || 1) * factor;
         const multiplicador = typeof getAreaMultiplier === 'function' ? getAreaMultiplier(areaId) : 5;
-        const valorAcumuladoExamen = Math.round(parseFloat(p.total) || (cant * multiplicador));
+        const valorExamen = Math.round(parseFloat(p.total) || (Math.abs(cant) * multiplicador)) * factor;
 
-        // A. Para las filas de servicio: acumula la cantidad de atenciones realizadas
+        // A. Sumar a las filas de servicio la cantidad de atenciones (sumando al valor actual de la celda)
         (filasServicioIds || []).forEach(fSrvId => {
           if (fSrvId) {
-            const kSrv = `${areaId}|${hojaId}|${fSrvId}`;
-            acumuladorCeldas[kSrv] = (acumuladorCeldas[kSrv] || 0) + cant;
-            celdasAfectadasKeys.add(kSrv);
+            const valActual = this.repo.obtenerCelda(areaId, hojaId, turnoId, ano, mes, fSrvId, dia);
+            const valNuevo = Math.max(0, valActual + cant);
+            this.repo.actualizarCelda(areaId, hojaId, turnoId, ano, mes, fSrvId, dia, valNuevo);
+            this._refrescarSiCoincide(areaId, hojaId, turnoId, mes, ano);
           }
         });
 
-        // B. Para las filas de examen: acumula el VALOR ACUMULADO numérico puro (ej. 3 x 5 = 15)
+        // B. Sumar a las filas de examen el resultado de la multiplicación (sumando al valor actual de la celda)
         if (filaExamenId) {
-          const kEx = `${areaId}|${hojaId}|${filaExamenId}`;
           if (!filasServicioIds || !filasServicioIds.includes(filaExamenId) || areaId === 'serologia') {
-            acumuladorCeldas[kEx] = (acumuladorCeldas[kEx] || 0) + valorAcumuladoExamen;
-            celdasAfectadasKeys.add(kEx);
+            const valActual = this.repo.obtenerCelda(areaId, hojaId, turnoId, ano, mes, filaExamenId, dia);
+            const valNuevo = Math.max(0, valActual + valorExamen);
+            this.repo.actualizarCelda(areaId, hojaId, turnoId, ano, mes, filaExamenId, dia, valNuevo);
+            this._refrescarSiCoincide(areaId, hojaId, turnoId, mes, ano);
           }
         }
       }
     });
+  }
 
-    // 3. Persistir en el repositorio de Formatos el acumulado numérico puro del día
-    celdasAfectadasKeys.forEach(keyStr => {
-      const [areaId, hojaId, filaId] = keyStr.split('|');
-      const valAcumulado = Math.round(acumuladorCeldas[keyStr] || 0);
-      this.repo.actualizarCelda(areaId, hojaId, turnoId, ano, mes, filaId, dia, valAcumulado);
-      this._refrescarSiCoincide(areaId, hojaId, turnoId, mes, ano);
-    });
+  /**
+   * Sincroniza las celdas de los Formatos Estadísticos para una fecha determinada
+   * basándose en los registros de atención acumulados del día. Preserva valores iniciales de celdas.
+   *
+   * @param {string} fecha – Fecha en formato 'YYYY-MM-DD'
+   * @param {Array} registrosAtencion – Array completo de registros de atención
+   * @param {Array} examenesCat – Catálogo de exámenes de Bioanálisis
+   * @param {Array} serviciosCat – Catálogo de servicios de Bioanálisis
+   */
+  sincronizarDesdeResumen(fecha, registrosAtencion, examenesCat, serviciosCat) {
+    this.incrementarFormatosDesdeRegistro(registrosAtencion, examenesCat, serviciosCat, false);
   }
 
   /**
@@ -340,4 +332,5 @@ class FormatosController {
     }
   }
 }
+
 

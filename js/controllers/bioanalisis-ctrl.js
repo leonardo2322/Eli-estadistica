@@ -38,7 +38,6 @@ class BioanalisisController {
     if (typeof this.view.bindFechaInicioStats === 'function') {
       this.view.bindFechaInicioStats(f => this._refrescar());
     }
-    this.view.bindFinalizarTurno(() => this._finalizarTurno());
     this.view.bindExport(
       ()  => this._exportHistorial(),
       (f) => this._exportResumen(f),
@@ -158,6 +157,7 @@ class BioanalisisController {
     if (Array.isArray(d)) {
       if (!d.length) return;
       const fechasAfectadas = new Set();
+      const itemsGuardados = [];
       d.forEach(item => {
         const itemLimpio = {
           id: item.id || null,
@@ -168,13 +168,17 @@ class BioanalisisController {
           total: item.total
         };
         this.repo.guardarPaciente(itemLimpio);
+        itemsGuardados.push(itemLimpio);
         if (item.fecha) fechasAfectadas.add(item.fecha);
       });
       this.view.clearPacForm();
       this._refrescar();
       DomHelpers.mostrarToast(`Se guardaron exitosamente ${d.length} registros de atención.`, 'success');
 
-      fechasAfectadas.forEach(f => this._notificarSincronizacion(f));
+      fechasAfectadas.forEach(f => {
+        const delFecha = itemsGuardados.filter(i => i.fecha === f);
+        this._notificarSincronizacion(f, delFecha, false);
+      });
       return;
     }
 
@@ -236,35 +240,6 @@ class BioanalisisController {
     this.view.renderPacientes(pacs, servicios, examenes,
       p  => this.view.fillPacForm(p),
       id => this._eliminarPaciente(id));
-  }
-
-  /**
-   * Finaliza el turno actual para la fecha seleccionada en el resumen:
-   * Sincroniza el Resumen Acumulado del Día con los Formatos Estadísticos Mensuales.
-   */
-  _finalizarTurno() {
-    const fecha = this.fechaRes || DateUtils.getHoy();
-    const pacientes = this.repo.obtenerPacientes().filter(p => p.fecha === fecha);
-
-    if (!pacientes.length) {
-      DomHelpers.mostrarToast(`No hay registros ingresados para la fecha ${fecha}.`, 'info');
-      return;
-    }
-
-    if (!this._cbSincronizarFormatos) {
-      DomHelpers.mostrarToast('El módulo de formatos no está conectado.', 'error');
-      return;
-    }
-
-    // Ejecutar la sincronización idempotente basada en los datos del Resumen del Día
-    this._notificarSincronizacion(fecha);
-
-    const totalExamenes = pacientes.reduce((sum, p) => sum + (parseInt(p.cantidad) || 1), 0);
-
-    DomHelpers.mostrarToast(
-      `⏰ ¡Turno Finalizado! Se han cargado ${totalExamenes} examen(es) a los Formatos Estadísticos del día ${fecha}.`,
-      'success'
-    );
   }
 
   _renderResumen() {

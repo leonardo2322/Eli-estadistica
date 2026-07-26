@@ -112,13 +112,36 @@ class OcrScanner {
     const norm = str => (str || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
 
     lineas.forEach(linea => {
-      const lineaNorm = norm(linea);
+      // ------------------------------------------------------------------
+      // PASO 1: Aplicar correcciones aprendidas antes de intentar mapear.
+      // Si el sistema aprendió que "Hemoglobyina" -> "Hemoglobina", lo
+      // corregirá automáticamente aquí antes de buscar coincidencias.
+      // ------------------------------------------------------------------
+      let lineaParaMapeo = linea;
+      let correccionAuto  = false;
+      let textoOcrOriginal = linea;
+
+      if (typeof OcrAprendizaje !== 'undefined') {
+        const resultado = OcrAprendizaje.aplicarCorreccionesAprendidas(linea);
+        if (resultado.correccionAplicada) {
+          lineaParaMapeo = resultado.textoCorrecto;
+          correccionAuto  = true;
+          // textoOcrOriginal conserva siempre lo que leyó el OCR en crudo
+        }
+      }
+
+      const lineaNorm = norm(lineaParaMapeo);
+
       // Extraer todos los números positivos presentes en la línea
-      const numeros = (linea.match(/\b\d+\b/g) || []).map(n => parseInt(n, 10)).filter(n => n >= 0 && n <= 9999);
+      const numeros = (lineaParaMapeo.match(/\b\d+\b/g) || []).map(n => parseInt(n, 10)).filter(n => n >= 0 && n <= 9999);
 
       if (!numeros.length) return;
 
-      // Buscar si coincide con alguna de las filas del formato
+      // ------------------------------------------------------------------
+      // PASO 2: Mapear la línea (ya corregida) con las filas del formato.
+      // Se usa comparación de palabras clave + similitud Levenshtein si
+      // OcrAprendizaje está disponible para mejorar el match.
+      // ------------------------------------------------------------------
       let mejorFila = null;
       let mejorPuntaje = 0;
 
@@ -129,15 +152,24 @@ class OcrScanner {
         palabrasLabel.forEach(w => {
           if (lineaNorm.includes(w)) coincidencias++;
         });
-        if (coincidencias > mejorPuntaje) {
-          mejorPuntaje = coincidencias;
+
+        // Bonus de similitud global con Levenshtein si el módulo está cargado
+        let bonusSimilitud = 0;
+        if (typeof OcrAprendizaje !== 'undefined') {
+          const sim = OcrAprendizaje.calcularSimilitud(lineaNorm, fLabel);
+          if (sim > 0.65) bonusSimilitud = sim;
+        }
+
+        const puntajeTotal = coincidencias + bonusSimilitud;
+        if (puntajeTotal > mejorPuntaje) {
+          mejorPuntaje = puntajeTotal;
           mejorFila = f;
         }
       });
 
       if (mejorFila && mejorPuntaje > 0) {
         if (!datosExtraidos[mejorFila.id]) datosExtraidos[mejorFila.id] = {};
-        // Asignar los números leídos a días correlativos o según los números hallados
+        // Asignar los números leídos a días correlativos
         numeros.forEach((num, idx) => {
           const dia = idx + 1;
           if (dia <= diasEnMes) {
@@ -145,10 +177,14 @@ class OcrScanner {
           }
         });
 
+        // Incluir textoOcrOriginal y correccionAuto para que el panel
+        // de confirmación pueda mostrar si se aplicó una corrección automática
         resumenLineas.push({
-          filaId: mejorFila.id,
-          label: mejorFila.label,
-          numeros: numeros.slice(0, diasEnMes)
+          filaId:          mejorFila.id,
+          label:           mejorFila.label,
+          numeros:         numeros.slice(0, diasEnMes),
+          textoOcrOriginal: textoOcrOriginal,  // lo que el OCR leyó antes de corregir
+          correccionAuto:  correccionAuto       // true si se aplicó una corrección aprendida
         });
       }
     });
