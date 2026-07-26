@@ -41,8 +41,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const bioCtrl      = new BioanalisisController(bioRepo, appView);
   const formatosCtrl = new FormatosController(formatosRepo, formatosView);
 
-  // ── Vincular Firebase con el Repositorio de Bioanálisis ─────
+  // ── Vincular Firebase con los Repositorios/Controladores ─────
   bioRepo.setFirebaseRepository(firebaseRepo);
+  formatosCtrl.setFirebaseRepository(firebaseRepo);
 
   // ── Arranque: el login notifica cuando el usuario entra ─────
   loginView.bind(() => {

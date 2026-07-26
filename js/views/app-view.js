@@ -161,6 +161,13 @@ class AppView {
     this.$tituloPacForm   = document.getElementById('titulo-form-paciente');
     this.$btnFinalizarTurno = document.getElementById('btn-finalizar-turno');
 
+    // Cola multi-examen
+    this.$btnAgregarPac   = document.getElementById('btn-agregar-paciente');
+    this.$cntColaPac      = document.getElementById('contenedor-cola-pacientes');
+    this.$badgeColaCount  = document.getElementById('badge-cola-count');
+    this.$listaColaItems  = document.getElementById('lista-cola-items');
+    this.colaRegistros    = [];
+
     // ── Historial ──────────────────────────────────────────────
     this.$tbodyPac   = document.getElementById('tabla-pacientes-cuerpo');
     this.$badge      = document.getElementById('badge-total-registros');
@@ -196,7 +203,9 @@ class AppView {
     this._initTableDelegation();
     this._initMantenimientoSelects();
     this._initFrasesRotativas();
+    this._initAgregarColaEvents();
   }
+
 
   // ════════════════════════════════════════════════════════════
   // INICIALIZACIÓN INTERNA
@@ -654,7 +663,89 @@ class AppView {
     this.$btnCancelPac.classList.remove('d-none');
   }
 
+  renderCola() {
+    if (!this.$cntColaPac || !this.$listaColaItems) return;
+    if (!this.colaRegistros || !this.colaRegistros.length) {
+      this.$cntColaPac.classList.add('d-none');
+      this.$listaColaItems.innerHTML = '';
+      if (this.$badgeColaCount) this.$badgeColaCount.textContent = '0 items';
+      return;
+    }
+
+    this.$cntColaPac.classList.remove('d-none');
+    if (this.$badgeColaCount) this.$badgeColaCount.textContent = `${this.colaRegistros.length} item(s)`;
+    this.$listaColaItems.innerHTML = '';
+
+    this.colaRegistros.forEach((item, index) => {
+      const div = document.createElement('div');
+      div.className = 'd-flex align-items-center justify-content-between bg-white border rounded p-1 px-2 small shadow-sm';
+      div.innerHTML = `
+        <div class="text-truncate me-2">
+          <span class="fw-bold text-teal">${DomHelpers.esc(item.servNombre)}</span>
+          <i class="bi bi-arrow-right-short text-muted"></i>
+          <span class="text-pink fw-semibold">${DomHelpers.esc(item.examNombre)}</span>
+          <span class="badge bg-secondary ms-1">x${item.cantidad}</span>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+          <span class="fw-bold text-teal">${parseFloat(item.total).toFixed(2)}</span>
+          <button type="button" class="btn btn-xs btn-outline-danger py-0 px-1 btn-del-cola" data-index="${index}" title="Eliminar de la lista">
+            <i class="bi bi-x-lg"></i>
+          </button>
+        </div>`;
+
+      div.querySelector('.btn-del-cola').addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.colaRegistros.splice(index, 1);
+        this.renderCola();
+        DomHelpers.mostrarToast('Examen removido de la lista previa.', 'info');
+      });
+
+      this.$listaColaItems.appendChild(div);
+    });
+  }
+
+  _initAgregarColaEvents() {
+    if (!this.$btnAgregarPac) return;
+
+    this.$btnAgregarPac.addEventListener('click', () => {
+      if (!this.$pacFecha.value || !this.$selServicio.value || !this.$selExamen.value) {
+        DomHelpers.mostrarToast('Por favor seleccione Fecha, Servicio y Examen antes de agregar a la lista.', 'info');
+        return;
+      }
+
+      const srvObj = (this._servicios || []).find(s => s.id === this.$selServicio.value);
+      const exmObj = (this._examenes || []).find(e => e.id === this.$selExamen.value);
+
+      const servNombre = srvObj ? srvObj.nombre : 'Servicio';
+      const examNombre = exmObj ? exmObj.nombre : 'Examen';
+      const cantidad = parseInt(this.$pacCantidad.value) || 1;
+      const total = parseFloat(this.$pacTotal.value) || 0;
+
+      this.colaRegistros.push({
+        id: null,
+        fecha: this.$pacFecha.value,
+        servicioId: this.$selServicio.value,
+        examenId: this.$selExamen.value,
+        cantidad,
+        total,
+        servNombre,
+        examNombre
+      });
+
+      this.renderCola();
+
+      // Resetear selector de examen para seguir agregando rápido
+      this.$selExamen.value = '';
+      this.$pacCantidad.value = '1';
+      if (this._calcFn) this._calcFn();
+
+      DomHelpers.mostrarToast(`Examen "${examNombre}" agregado a la lista previa.`, 'success');
+    });
+  }
+
   clearPacForm() {
+    this.colaRegistros = [];
+    this.renderCola();
     this.$frmPac.reset();
     this.$pacId.value       = '';
     this.$pacFecha.value    = DateUtils.getHoy();
@@ -672,7 +763,24 @@ class AppView {
   bindPacForm(handler) {
     this.$frmPac.addEventListener('submit', e => {
       e.preventDefault();
+
+      // Si hay elementos en la cola visual, guardar toda la lista
+      if (this.colaRegistros && this.colaRegistros.length > 0) {
+        const cola = [...this.colaRegistros];
+        this.colaRegistros = [];
+        this.renderCola();
+        this.clearPacForm();
+        handler(cola);
+        return;
+      }
+
+      // Si no hay cola, verificar si el formulario individual es válido
       if (!this.$frmPac.checkValidity()) { this.$frmPac.reportValidity(); return; }
+      if (!this.$selServicio.value || !this.$selExamen.value) {
+        DomHelpers.mostrarToast('Agregue exámenes a la lista previa antes de guardar.', 'info');
+        return;
+      }
+
       handler({
         id:             this.$pacId.value || null,
         fecha:          this.$pacFecha.value,
@@ -681,6 +789,7 @@ class AppView {
         cantidad:       parseInt(this.$pacCantidad.value) || 1,
         total:          parseFloat(this.$pacTotal.value)  || 0
       });
+      this.clearPacForm();
     });
     this.$btnCancelPac.addEventListener('click', () => this.clearPacForm());
   }

@@ -155,6 +155,29 @@ class BioanalisisController {
   // ─────────────────────────────────────────────────────────────
 
   _guardarPaciente(d) {
+    if (Array.isArray(d)) {
+      if (!d.length) return;
+      const fechasAfectadas = new Set();
+      d.forEach(item => {
+        const itemLimpio = {
+          id: item.id || null,
+          fecha: item.fecha,
+          servicioId: item.servicioId,
+          examenId: item.examenId,
+          cantidad: item.cantidad,
+          total: item.total
+        };
+        this.repo.guardarPaciente(itemLimpio);
+        if (item.fecha) fechasAfectadas.add(item.fecha);
+      });
+      this.view.clearPacForm();
+      this._refrescar();
+      DomHelpers.mostrarToast(`Se guardaron exitosamente ${d.length} registros de atención.`, 'success');
+
+      fechasAfectadas.forEach(f => this._notificarSincronizacion(f));
+      return;
+    }
+
     let anterior = null;
     if (d.id) {
       anterior = this.repo.obtenerPacientes().find(p => p.id === d.id) || null;

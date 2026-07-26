@@ -169,11 +169,20 @@ class FormatosView {
       if (handlers.onExportar) handlers.onExportar();
     });
 
+    // Guardar en BD
+    const $btnGuardarDB = document.getElementById('fmt-btn-guardar-db');
+    if ($btnGuardarDB) {
+      $btnGuardarDB.addEventListener('click', () => {
+        if (handlers.onGuardarDB) handlers.onGuardarDB();
+      });
+    }
+
     // Limpiar grilla
     this.$btnLimpiar.addEventListener('click', () => {
       if (handlers.onLimpiar) handlers.onLimpiar();
     });
   }
+
 
   // ════════════════════════════════════════════════════════════
   // RENDER DE LA GRILLA MENSUAL
@@ -402,17 +411,24 @@ class FormatosView {
     const $btn7Dias   = document.getElementById('btn-mob-copiar-7dias');
     const $btnRango   = document.getElementById('btn-mob-copiar-rango');
     const $btnCol     = document.getElementById('btn-mob-copiar-columna');
+    const $btnExmArea = document.getElementById('btn-mob-copiar-examenes-area');
+    const $panelExmArea = document.getElementById('fmt-panel-examenes-area');
+    const $lblAreaMult = document.getElementById('lbl-area-multiplicador');
+    const $cntChksExm = document.getElementById('contenedor-checkboxes-examenes-area');
+    const $btnSelTodos = document.getElementById('btn-select-todos-examenes');
+    const $btnDeselTodos = document.getElementById('btn-deselect-todos-examenes');
+
     const $btnCerrar  = document.getElementById('btn-mob-cerrar-bar');
     const $btnCancelar = document.getElementById('btn-mob-cancelar-accion');
     const $btnAplicar = document.getElementById('btn-mob-aplicar-accion');
 
     let celdaActivaMobile = null;
-    let opcionSeleccionada = null; // 'fila' | '7dias' | 'rango' | 'columna' | null
+    let opcionSeleccionada = null; // 'fila' | '7dias' | 'rango' | 'columna' | 'examenes-area' | null
     let celdaOrigenRango = null;
     let celdaDestinoRango = null;
 
     const desmarcarOpcionesUI = () => {
-      [$btnFila, $btn7Dias, $btnRango, $btnCol].forEach(btn => {
+      [$btnFila, $btn7Dias, $btnRango, $btnCol, $btnExmArea].forEach(btn => {
         if (!btn) return;
         btn.classList.remove('opcion-seleccionada');
         const icon = btn.querySelector('.check-icon');
@@ -420,6 +436,7 @@ class FormatosView {
           icon.className = 'bi bi-circle check-icon text-muted';
         }
       });
+      if ($panelExmArea) $panelExmArea.classList.add('d-none');
     };
 
     const resetModal = () => {
@@ -435,9 +452,52 @@ class FormatosView {
       if ($mobOverlay) $mobOverlay.classList.add('d-none');
     };
 
+    const poblarCheckboxesExamenesArea = () => {
+      if (!$cntChksExm) return;
+      $cntChksExm.innerHTML = '';
+      const mult = typeof getAreaMultiplier === 'function' ? getAreaMultiplier(area.id) : 5;
+      if ($lblAreaMult) {
+        $lblAreaMult.textContent = `Exámenes del Área (${area.label} — Factor: ${mult}x)`;
+      }
+
+      // Recopilar todas las filas que no sean totales
+      const filasDisponibles = [];
+      hoja.grupos.forEach(grupo => {
+        grupo.filas.forEach(f => {
+          if (!f.esTotal) filasDisponibles.push(f);
+        });
+      });
+
+      filasDisponibles.forEach(f => {
+        const colDiv = document.createElement('div');
+        colDiv.className = 'col-12 col-md-6';
+        colDiv.innerHTML = `
+          <div class="form-check mb-1">
+            <input class="form-check-input chk-examen-copiar" type="checkbox" id="chk-exm-${f.id}" value="${f.id}" checked>
+            <label class="form-check-label small" for="chk-exm-${f.id}" title="${DomHelpers.esc(f.label)}">
+              ${DomHelpers.esc(f.label)}
+            </label>
+          </div>`;
+        $cntChksExm.appendChild(colDiv);
+      });
+    };
+
+    if ($btnSelTodos) {
+      $btnSelTodos.onclick = () => {
+        const chks = $cntChksExm?.querySelectorAll('.chk-examen-copiar');
+        chks?.forEach(c => { c.checked = true; });
+      };
+    }
+
+    if ($btnDeselTodos) {
+      $btnDeselTodos.onclick = () => {
+        const chks = $cntChksExm?.querySelectorAll('.chk-examen-copiar');
+        chks?.forEach(c => { c.checked = false; });
+      };
+    }
+
     const seleccionarOpcion = (opcion, btnEl) => {
       if (opcionSeleccionada === opcion) {
-        // Deseleccionar si ya estaba seleccionado
         opcionSeleccionada = null;
         desmarcarOpcionesUI();
         if ($btnAplicar) $btnAplicar.disabled = true;
@@ -445,14 +505,23 @@ class FormatosView {
         return;
       }
 
-      // Marcar nueva opción
       desmarcarOpcionesUI();
       opcionSeleccionada = opcion;
       btnEl.classList.add('opcion-seleccionada');
       const icon = btnEl.querySelector('.check-icon');
       if (icon) icon.className = 'bi bi-check-circle-fill check-icon text-teal';
 
-      if (opcion === 'rango') {
+      if (opcion === 'examenes-area') {
+        if ($panelExmArea) $panelExmArea.classList.remove('d-none');
+        poblarCheckboxesExamenesArea();
+        const mult = typeof getAreaMultiplier === 'function' ? getAreaMultiplier(area.id) : 5;
+        const valActual = celdaActivaMobile ? celdaActivaMobile.val : 0;
+        const valCalc = valActual * mult;
+        if ($mobInstruccion) {
+          $mobInstruccion.innerHTML = `<strong>Copiado con Multiplicador (${mult}x):</strong> Servicio: [${valActual}] ➔ Exámenes: [${valCalc}]. Marca los exámenes deseados:`;
+        }
+        if ($btnAplicar) $btnAplicar.disabled = false;
+      } else if (opcion === 'rango') {
         celdaOrigenRango = { ...celdaActivaMobile };
         if (celdaOrigenRango.inp) celdaOrigenRango.inp.classList.add('inp-celda-origen');
         if ($mobInstruccion) $mobInstruccion.innerHTML = `📍 Origen Día ${celdaOrigenRango.dia} (${celdaOrigenRango.val}). <br><strong>Cierra este panel y toca la celda destino en la tabla.</strong>`;
@@ -509,10 +578,11 @@ class FormatosView {
       if ($btnCerrar) $btnCerrar.onclick = () => resetModal();
       if ($btnCancelar) $btnCancelar.onclick = () => resetModal();
 
-      if ($btnFila)  $btnFila.onclick  = () => seleccionarOpcion('fila', $btnFila);
-      if ($btn7Dias) $btn7Dias.onclick = () => seleccionarOpcion('7dias', $btn7Dias);
-      if ($btnRango) $btnRango.onclick = () => seleccionarOpcion('rango', $btnRango);
-      if ($btnCol)   $btnCol.onclick   = () => seleccionarOpcion('columna', $btnCol);
+      if ($btnFila)    $btnFila.onclick    = () => seleccionarOpcion('fila', $btnFila);
+      if ($btn7Dias)   $btn7Dias.onclick   = () => seleccionarOpcion('7dias', $btn7Dias);
+      if ($btnRango)   $btnRango.onclick   = () => seleccionarOpcion('rango', $btnRango);
+      if ($btnCol)     $btnCol.onclick     = () => seleccionarOpcion('columna', $btnCol);
+      if ($btnExmArea) $btnExmArea.onclick = () => seleccionarOpcion('examenes-area', $btnExmArea);
 
       // Botón "Aplicar Copiado"
       if ($btnAplicar) {
@@ -520,7 +590,30 @@ class FormatosView {
           if (!opcionSeleccionada || !celdaActivaMobile) return;
           const val = celdaActivaMobile.val;
 
-          if (opcionSeleccionada === 'fila') {
+          if (opcionSeleccionada === 'examenes-area') {
+            const mult = typeof getAreaMultiplier === 'function' ? getAreaMultiplier(area.id) : 5;
+            const valExamenes = Math.round(val * mult);
+            const dia = celdaActivaMobile.dia;
+
+            const chksSeleccionados = Array.from($cntChksExm?.querySelectorAll('.chk-examen-copiar:checked') || [])
+              .map(c => c.value);
+
+            if (!chksSeleccionados.length) {
+              DomHelpers.mostrarToast('Seleccione al menos un examen de la lista.', 'info');
+              return;
+            }
+
+            chksSeleccionados.forEach(fId => {
+              const targetInp = tabla.querySelector(`input.inp-celda[data-fila="${fId}"][data-dia="${dia}"]`);
+              if (targetInp) {
+                targetInp.value = valExamenes || '';
+                targetInp.dispatchEvent(new Event('input', { bubbles: true }));
+              }
+            });
+
+            DomHelpers.mostrarToast(`Copiado aplicado a ${chksSeleccionados.length} exámenes para el Día ${dia} (Valor: ${valExamenes} = ${val} x ${mult}).`, 'success');
+          }
+          else if (opcionSeleccionada === 'fila') {
             const { filaId } = celdaActivaMobile;
             dias.forEach(d => {
               const targetInp = tabla.querySelector(`input.inp-celda[data-fila="${filaId}"][data-dia="${d}"]`);

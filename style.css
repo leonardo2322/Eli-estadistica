@@ -1475,3 +1475,22 @@ td:hover .cell-fill-handle,
   background-color: rgba(13, 148, 136, 0.22) !important;
   box-shadow: 0 0 8px rgba(13, 148, 136, 0.4) !important;
 }
+
+/* Botón ultra-pequeño para acciones rápidas */
+.btn-xs {
+  padding: 0.15rem 0.4rem;
+  font-size: 0.725rem;
+  line-height: 1.2;
+  border-radius: 6px;
+}
+
+/* Ajustes para el panel de exámenes del área */
+#fmt-panel-examenes-area {
+  border-color: rgba(13, 148, 136, 0.2) !important;
+}
+
+#contenedor-cola-pacientes {
+  background-color: #f8fafc !important;
+  border-color: rgba(13, 148, 136, 0.25) !important;
+}
+

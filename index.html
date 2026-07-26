@@ -203,6 +203,9 @@
 
             <!-- Acciones -->
             <div class="fmt-acciones">
+              <button id="fmt-btn-guardar-db" class="btn btn-sm btn-primary shadow-sm" title="Guardar todos los cambios de formatos en la base de datos (Cloud Firestore)">
+                <i class="bi bi-cloud-arrow-up-fill me-1"></i>Guardar en Base de Datos
+              </button>
               <button id="fmt-btn-escanear-foto" class="btn btn-sm btn-outline-teal" title="Cargar formato automáticamente desde foto o reporte con IA">
                 <i class="bi bi-camera-fill me-1"></i>Escanear Foto (IA)
               </button>
@@ -260,6 +263,24 @@
                   <span><i class="bi bi-arrow-down-short text-teal me-2"></i>Rellenar Día Completo</span>
                   <i class="bi bi-circle check-icon text-muted"></i>
                 </button>
+                <button id="btn-mob-copiar-examenes-area" type="button" class="btn fmt-opcion-btn text-start w-100 py-2 px-3 mb-2 d-flex align-items-center justify-content-between">
+                  <span><i class="bi bi-check2-square text-teal me-2"></i>Copiar a Exámenes del Área (Servicio × Multiplicador)</span>
+                  <i class="bi bi-circle check-icon text-muted"></i>
+                </button>
+              </div>
+
+              <!-- Panel desplegable para seleccionar Exámenes del Área en Copiado Rápido -->
+              <div id="fmt-panel-examenes-area" class="border rounded p-2 bg-light mb-3 d-none">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                  <span class="small fw-bold text-teal" id="lbl-area-multiplicador">Exámenes del Área</span>
+                  <div>
+                    <button type="button" id="btn-select-todos-examenes" class="btn btn-xs btn-outline-teal py-0 px-2 small me-1">Todos</button>
+                    <button type="button" id="btn-deselect-todos-examenes" class="btn btn-xs btn-outline-secondary py-0 px-2 small">Ninguno</button>
+                  </div>
+                </div>
+                <div id="contenedor-checkboxes-examenes-area" class="row g-2" style="max-height: 140px; overflow-y: auto;">
+                  <!-- Checkboxes inyectados por JS -->
+                </div>
               </div>
 
               <!-- Footer con botones Cancelar y Aplicar -->
@@ -456,6 +477,21 @@
                   </div>
 
                   <div class="d-flex gap-2 flex-column">
+                    <button type="button" id="btn-agregar-paciente" class="btn btn-outline-teal w-100 py-2 fw-semibold">
+                      <i class="bi bi-plus-circle-fill me-1"></i>Agregar Examen a la Lista
+                    </button>
+                    
+                    <!-- Cola visual de exámenes agregados pendientes por guardar -->
+                    <div id="contenedor-cola-pacientes" class="d-none border rounded p-2 bg-light mb-2">
+                      <div class="d-flex justify-content-between align-items-center mb-2 pb-1 border-bottom">
+                        <span class="fw-bold small text-teal"><i class="bi bi-list-check me-1"></i>Lista de Exámenes por Guardar</span>
+                        <span class="badge bg-teal" id="badge-cola-count">0 items</span>
+                      </div>
+                      <div id="lista-cola-items" class="d-flex flex-column gap-1" style="max-height: 160px; overflow-y: auto;">
+                        <!-- Items inyectados dinámicamente -->
+                      </div>
+                    </div>
+
                     <div class="d-flex gap-2">
                       <button type="submit" id="btn-guardar-paciente" class="btn btn-teal-action flex-grow-1 py-2">
                         <i class="bi bi-save me-1"></i>Guardar Registro

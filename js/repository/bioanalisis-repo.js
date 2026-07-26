@@ -93,12 +93,7 @@ class BioanalisisRepository {
     }
 
     if (!localStorage.getItem(this.KEYS.PACIENTES) && !yaSembrado) {
-      localStorage.setItem(this.KEYS.PACIENTES, JSON.stringify([
-        {
-          id: 'pac-1', fecha: hoy,
-          servicioId: 'srv-1', examenId: 'exm-1', cantidad: 1, total: 5
-        }
-      ]));
+      localStorage.setItem(this.KEYS.PACIENTES, JSON.stringify([]));
     }
 
     localStorage.setItem('eli_seeded', 'true');

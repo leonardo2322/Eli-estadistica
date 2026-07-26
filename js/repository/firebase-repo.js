@@ -242,4 +242,82 @@ class FirebaseRepository {
       return { ok: false, count: 0, mensaje: error.message };
     }
   }
+
+  /**
+   * Sincroniza todos los formatos almacenados localmente hacia Cloud Firestore.
+   * @param {FormatosRepository} formatosRepo 
+   * @returns {Promise<{ok: boolean, count: number, mensaje: string}>}
+   */
+  async sincronizarFormatosAFirestore(formatosRepo) {
+    if (!db) {
+      return { ok: false, count: 0, mensaje: 'Base de datos de Firebase no inicializada.' };
+    }
+
+    try {
+      const periodos = formatosRepo.listarPeriodosGuardados();
+      if (!periodos.length) {
+        return { ok: true, count: 0, mensaje: 'No hay formatos con datos para guardar.' };
+      }
+
+      const batch = db.batch();
+      let operaciones = 0;
+
+      periodos.forEach(p => {
+        const datos = formatosRepo.obtenerGrilla(p.areaId, p.hojaId, p.turnoId, p.ano, p.mes);
+        const docRef = db.collection(this.COLLECTIONS.FORMATOS).doc(p.clave);
+        batch.set(docRef, {
+          clave: p.clave,
+          areaId: p.areaId,
+          hojaId: p.hojaId,
+          turnoId: p.turnoId,
+          ano: p.ano,
+          mes: p.mes,
+          datos,
+          actualizadoEn: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+        operaciones++;
+      });
+
+      if (operaciones > 0) {
+        await batch.commit();
+      }
+
+      return {
+        ok: true,
+        count: operaciones,
+        mensaje: `¡Formatos guardados en Cloud Firestore! (${operaciones} grillas).`
+      };
+    } catch (error) {
+      console.error('Error al sincronizar formatos a Firestore:', error);
+      return { ok: false, count: 0, mensaje: error.message };
+    }
+  }
+
+  /**
+   * Descarga todos los formatos guardados en Cloud Firestore y los carga en localStorage.
+   * @param {FormatosRepository} formatosRepo 
+   * @returns {Promise<{ok: boolean, count: number}>}
+   */
+  async cargarFormatosDesdeFirestore(formatosRepo) {
+    if (!db) return { ok: false, count: 0 };
+    try {
+      const snapshot = await db.collection(this.COLLECTIONS.FORMATOS).get();
+      let count = 0;
+      snapshot.docs.forEach(doc => {
+        const data = doc.data();
+        if (data && data.datos && data.areaId && data.hojaId && data.turnoId && data.ano && data.mes) {
+          formatosRepo.guardarGrilla(data.areaId, data.hojaId, data.turnoId, data.ano, data.mes, data.datos);
+          count++;
+        } else if (doc.id && doc.id.startsWith('hsj_formato_') && data.datos) {
+          localStorage.setItem(doc.id, JSON.stringify(data.datos));
+          count++;
+        }
+      });
+      return { ok: true, count };
+    } catch (error) {
+      console.error('Error al cargar formatos desde Firestore:', error);
+      return { ok: false, count: 0 };
+    }
+  }
 }
+

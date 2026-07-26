@@ -25,6 +25,15 @@ class FormatosController {
   constructor(repo, view) {
     this.repo = repo;
     this.view = view;
+    this.firebaseRepo = null;
+  }
+
+  /**
+   * Vincula el repositorio de Cloud Firestore para persistencia remota.
+   * @param {FirebaseRepository} fbRepo 
+   */
+  setFirebaseRepository(fbRepo) {
+    this.firebaseRepo = fbRepo;
   }
 
   /** Inicializa bindings y carga la grilla inicial. */
@@ -36,15 +45,40 @@ class FormatosController {
       onCambioPeriodo: () => this._cargarGrilla(),
       onCeldaCambiada: (filaId, dia, valor) => this._guardarCelda(filaId, dia, valor),
       onExportar:      () => this._exportarCSV(),
-      onLimpiar:       () => this._limpiarGrilla()
+      onLimpiar:       () => this._limpiarGrilla(),
+      onGuardarDB:     () => this.guardarEnBD()
     });
 
     if (typeof this.view.bindEscanerFoto === 'function') {
       this.view.bindEscanerFoto(datos => this.aplicarDatosFoto(datos));
     }
 
-    // Cargar grilla inicial si hay un área seleccionada
-    this._cargarGrilla();
+    // Intentar descargar formatos previamente guardados en Firestore si el repositorio está listo
+    if (this.firebaseRepo) {
+      this.firebaseRepo.cargarFormatosDesdeFirestore(this.repo).then(() => {
+        this._cargarGrilla();
+      });
+    } else {
+      this._cargarGrilla();
+    }
+  }
+
+  /**
+   * Guarda manualmente todas las grillas de Formatos en Cloud Firestore.
+   */
+  async guardarEnBD() {
+    if (!this.firebaseRepo) {
+      DomHelpers.mostrarToast('Base de datos no inicializada. Verifique la conexión a Firebase.', 'error');
+      return;
+    }
+
+    DomHelpers.mostrarToast('Guardando datos de formatos en la base de datos...', 'info');
+    const res = await this.firebaseRepo.sincronizarFormatosAFirestore(this.repo);
+    if (res.ok) {
+      DomHelpers.mostrarToast(res.mensaje || '¡Formatos guardados en la base de datos exitosamente!', 'success');
+    } else {
+      DomHelpers.mostrarToast(`Error al guardar en la base de datos: ${res.mensaje}`, 'error');
+    }
   }
 
   /**
@@ -78,6 +112,7 @@ class FormatosController {
   /**
    * Determina el contexto actual (área, hoja, turno, mes, año)
    * y solicita a la vista que renderice la grilla con los datos guardados.
+   * Mantiene estrictamente la estructura estática del Excel "Formatos_Hospital_San_Jose_v2".
    */
   _cargarGrilla() {
     const areaId  = this.view.getAreaId();
@@ -99,32 +134,8 @@ class FormatosController {
     const hojaOriginal = area.hojas.find(h => h.id === hojaId) || area.hojas[0];
     if (!hojaOriginal) { this.view.mostrarSeleccionArea(); return; }
 
-    // Clonar hoja para inyectar filas adicionales sin alterar el objeto estático
+    // Usar la hoja puramente como está definida en Formatos_Hospital_San_Jose_v2
     const hoja = JSON.parse(JSON.stringify(hojaOriginal));
-
-    // Obtener servicios y exámenes personalizados registrados en Mantenimiento
-    const servicios = JSON.parse(localStorage.getItem('eli_servicios')) || [];
-    const examenes  = JSON.parse(localStorage.getItem('eli_examenes')) || [];
-
-    const idsExistentes = new Set();
-    hoja.grupos.forEach(g => g.filas.forEach(f => idsExistentes.add(f.id)));
-
-    const srvCustom = servicios.filter(s => s.areaId === area.id && s.hojaId === hojaOriginal.id && !idsExistentes.has(s.id));
-    const exmCustom = examenes.filter(e => e.areaId === area.id && e.hojaId === hojaOriginal.id && !idsExistentes.has(e.id));
-
-    if (srvCustom.length > 0) {
-      hoja.grupos.push({
-        titulo: 'SERVICIOS ADICIONALES (MANTENIMIENTO)',
-        filas: srvCustom.map(s => ({ id: s.id, label: s.nombre.toUpperCase(), esTotal: false }))
-      });
-    }
-
-    if (exmCustom.length > 0) {
-      hoja.grupos.push({
-        titulo: 'EXÁMENES ADICIONALES (MANTENIMIENTO)',
-        filas: exmCustom.map(e => ({ id: e.id, label: e.nombre, esTotal: false }))
-      });
-    }
 
     // Obtener datos guardados de esta grilla
     const datos = this.repo.obtenerGrilla(area.id, hojaOriginal.id, turnoId, ano, mes);
