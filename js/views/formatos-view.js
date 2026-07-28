@@ -562,7 +562,8 @@ class FormatosView {
     };
 
     if ($mobOverlay) {
-      const abrirModalCelda = (inp) => {
+      const abrirModalCelda = (inp, forceOpen = false) => {
+        if (!inp) return;
         const filaId = inp.dataset.fila;
         const dia = Number(inp.dataset.dia);
         const val = parseInt(inp.value) || 0;
@@ -581,22 +582,44 @@ class FormatosView {
         celdaActivaMobile = { filaId, dia, val, inp };
         if ($mobLabel) $mobLabel.textContent = `📋 Copiado Rápido — Día ${dia}: [${val}]`;
 
-        // Abrir modal solo si no estábamos capturando celda destino
-        if (opcionSeleccionada !== 'rango') {
+        const infoDisp = DomHelpers.obtenerTipoDispositivo();
+
+        // Abrir modal solo si es Teléfono/Tablet, o si se forzó la apertura (clic en botón Excel en barra o celda en PC)
+        if (opcionSeleccionada !== 'rango' && (infoDisp.esMovilOTablet || forceOpen)) {
           $mobOverlay.classList.remove('d-none');
         }
       };
 
+      this._abrirModalCeldaRef = abrirModalCelda;
+
       tabla.addEventListener('focusin', e => {
         if (!e.target.classList.contains('inp-celda')) return;
-        abrirModalCelda(e.target);
+        abrirModalCelda(e.target, false);
       });
 
       tabla.addEventListener('click', e => {
         const inp = e.target.closest('.inp-celda');
         if (!inp) return;
-        abrirModalCelda(inp);
+        abrirModalCelda(inp, false);
       });
+
+      const $btnCopiarRapido = document.getElementById('fmt-btn-copiar-rapido');
+      if ($btnCopiarRapido) {
+        $btnCopiarRapido.onclick = () => {
+          if (celdaActivaMobile && celdaActivaMobile.inp && document.body.contains(celdaActivaMobile.inp)) {
+            celdaActivaMobile.val = parseInt(celdaActivaMobile.inp.value) || 0;
+            abrirModalCelda(celdaActivaMobile.inp, true);
+          } else {
+            const primeraCelda = tabla.querySelector('input.inp-celda');
+            if (primeraCelda) {
+              primeraCelda.focus();
+              abrirModalCelda(primeraCelda, true);
+            } else {
+              DomHelpers.mostrarToast('Seleccione una celda en la grilla para usar Copiado Rápido.', 'info');
+            }
+          }
+        };
+      }
 
       if ($btnCerrar) $btnCerrar.onclick = () => resetModal();
       if ($btnCancelar) $btnCancelar.onclick = () => resetModal();
@@ -817,6 +840,9 @@ class FormatosView {
       draggedInputs = [];
     };
 
+    let clickStartPos = { x: 0, y: 0 };
+    let dragMoved = false;
+
     tabla.addEventListener('mousedown', e => {
       const handle = e.target.closest('.cell-fill-handle');
       if (!handle) return;
@@ -824,6 +850,8 @@ class FormatosView {
 
       startFilaId = handle.dataset.fila;
       startDia = Number(handle.dataset.dia);
+      clickStartPos = { x: e.clientX, y: e.clientY };
+      dragMoved = false;
 
       const sourceInp = tabla.querySelector(`input.inp-celda[data-fila="${startFilaId}"][data-dia="${startDia}"]`);
       startVal = sourceInp ? (parseInt(sourceInp.value) || 0) : 0;
@@ -832,6 +860,11 @@ class FormatosView {
 
     const onMove = e => {
       if (!isDragging) return;
+      const dx = Math.abs(e.clientX - clickStartPos.x);
+      const dy = Math.abs(e.clientY - clickStartPos.y);
+      if (dx > 3 || dy > 3) {
+        dragMoved = true;
+      }
       const clientX = e.clientX;
       const clientY = e.clientY;
       const targetEl = document.elementFromPoint(clientX, clientY);
@@ -883,12 +916,18 @@ class FormatosView {
       if (!isDragging) return;
       isDragging = false;
 
-      if (draggedInputs.length > 0) {
+      if (dragMoved && draggedInputs.length > 0) {
         draggedInputs.forEach(inp => {
           inp.value = startVal || '';
           inp.dispatchEvent(new Event('input', { bubbles: true }));
         });
         DomHelpers.mostrarToast(`Celdas rellenadas con valor ${startVal}.`, 'success');
+      } else if (!dragMoved && startFilaId) {
+        // Clic simple en la manija de Excel ("botoncito de excel") -> abrir modal de copiado rápido
+        const sourceInp = tabla.querySelector(`input.inp-celda[data-fila="${startFilaId}"][data-dia="${startDia}"]`);
+        if (sourceInp && typeof this._abrirModalCeldaRef === 'function') {
+          this._abrirModalCeldaRef(sourceInp, true);
+        }
       }
 
       clearHighlights();

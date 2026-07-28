@@ -131,7 +131,42 @@ const DomHelpers = (() => {
     el.classList.toggle('d-none', !visible);
   }
 
+  /**
+   * Detecta el tipo de dispositivo en el que se ejecuta la aplicación: 'telefono', 'tablet' o 'pc'.
+   * Categoriza teléfono y tablet juntos (esMovilOTablet) para interacciones táctiles.
+   * @returns {{ tipo: 'telefono'|'tablet'|'pc', esTelefono: boolean, esTablet: boolean, esPC: boolean, esMovilOTablet: boolean }}
+   */
+  function obtenerTipoDispositivo() {
+    const ua = navigator.userAgent || '';
+    const width = window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth;
+    const hasTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+
+    const isMobileUA = /Android.*Mobile|iPhone|iPod|Windows Phone|BlackBerry/i.test(ua);
+    const isTabletUA = /iPad|Android(?!.*Mobile)/i.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+    let esTelefono = false;
+    let esTablet = false;
+    let esPC = false;
+
+    if (isMobileUA || (hasTouch && width < 768)) {
+      esTelefono = true;
+    } else if (isTabletUA || (hasTouch && width >= 768 && width <= 1024)) {
+      esTablet = true;
+    } else {
+      esPC = true;
+    }
+
+    return {
+      tipo: esTelefono ? 'telefono' : (esTablet ? 'tablet' : 'pc'),
+      esTelefono,
+      esTablet,
+      esPC,
+      esMovilOTablet: esTelefono || esTablet
+    };
+  }
+
   // API pública
-  return { esc, crearFila, reconstruirSelect, mostrarToast, toggleVisible };
+  return { esc, crearFila, reconstruirSelect, mostrarToast, toggleVisible, obtenerTipoDispositivo };
 
 })();
+

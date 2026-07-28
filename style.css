@@ -1369,15 +1369,22 @@ body {
   position: absolute;
   bottom: 1px;
   right: 1px;
-  width: 5px;
-  height: 5px;
+  width: 6px;
+  height: 6px;
   background-color: var(--teal-dark);
   border: 1px solid white;
-  cursor: crosshair;
+  cursor: pointer;
   z-index: 10;
   display: none;
   border-radius: 1px;
-  box-shadow: 0 0 2px rgba(0,0,0,0.2);
+  box-shadow: 0 0 2px rgba(0,0,0,0.25);
+  transition: transform 0.15s ease, background-color 0.15s ease;
+}
+
+.cell-fill-handle:hover {
+  transform: scale(1.4);
+  background-color: #0d9488;
+  box-shadow: 0 0 4px rgba(13, 148, 136, 0.6);
 }
 
 td:hover .cell-fill-handle,
