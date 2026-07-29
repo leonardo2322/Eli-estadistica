@@ -86,11 +86,6 @@ class GeminiVisionService {
       throw new Error('API Key de Gemini no configurada. Configure su clave API de Google Gemini para habilitar el reconocimiento con IA.');
     }
 
-    const modelosNombres = [
-      'gemini-1.5-flash',
-      'gemini-2.0-flash'
-    ];
-
     const atencionesTotales = [];
 
     const promptInstrucciones = `
@@ -121,9 +116,19 @@ REGLAS DE SERVICIO:
 Responde ÚNICAMENTE con el objeto JSON válido sin texto explicativo.
 `;
 
+    // URL única y oficial para gemini-1.5-flash
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(key)}`;
+
     for (let i = 0; i < archivos.length; i++) {
       const file = archivos[i];
-      if (onProgress) onProgress(i + 1, archivos.length, `Enviando imagen ${i + 1} a Google Gemini IA...`);
+
+      // Si se procesa más de 1 imagen en el lote, añadir retardo preventivo de 4 segundos para evitar Rate Limit 429
+      if (i > 0) {
+        if (onProgress) onProgress(i + 1, archivos.length, `Esperando 4s para respetar límite de cuota (Rate Limit)...`);
+        await new Promise(resolve => setTimeout(resolve, 4000));
+      }
+
+      if (onProgress) onProgress(i + 1, archivos.length, `Enviando imagen ${i + 1} a Google Gemini 1.5 Flash...`);
 
       const base64Data = await this.fileToBase64(file);
 
@@ -147,49 +152,22 @@ Responde ÚNICAMENTE con el objeto JSON válido sin texto explicativo.
         }
       };
 
-      let response = null;
-      let ultimoError = null;
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': key
+        },
+        body: JSON.stringify(requestBody)
+      });
 
-      // URL estándar recomendada por Google AI Studio:
-      // https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=TU_API_KEY
-      for (const modNombre of modelosNombres) {
-        const endpointsToTry = [
-          {
-            url: `https://generativelanguage.googleapis.com/v1beta/models/${modNombre}:generateContent?key=${encodeURIComponent(key)}`,
-            headers: { 'Content-Type': 'application/json' }
-          },
-          {
-            url: `https://generativelanguage.googleapis.com/v1beta/models/${modNombre}:generateContent`,
-            headers: {
-              'Content-Type': 'application/json',
-              'x-goog-api-key': key
-            }
-          }
-        ];
-
-        for (const ep of endpointsToTry) {
-          try {
-            const resAttempt = await fetch(ep.url, {
-              method: 'POST',
-              headers: ep.headers,
-              body: JSON.stringify(requestBody)
-            });
-            if (resAttempt.ok) {
-              response = resAttempt;
-              break;
-            } else {
-              const errBody = await resAttempt.json().catch(() => ({}));
-              ultimoError = `(${resAttempt.status}) ${errBody.error?.message || resAttempt.statusText}`;
-            }
-          } catch (errNet) {
-            ultimoError = errNet.message;
-          }
+      if (!response.ok) {
+        const errJson = await response.json().catch(() => ({}));
+        const msgErr = errJson.error?.message || response.statusText;
+        if (response.status === 429) {
+          throw new Error(`Límite de cuota excedido (429): ${msgErr}. Espere un momento e intente de nuevo.`);
         }
-        if (response && response.ok) break;
-      }
-
-      if (!response || !response.ok) {
-        throw new Error(`Error en API Gemini (${ultimoError || 'Servicio no disponible'}). Verifique la clave configurada o la conexión a internet.`);
+        throw new Error(`Error en API Gemini (${response.status}): ${msgErr}`);
       }
 
       const resData = await response.json();
