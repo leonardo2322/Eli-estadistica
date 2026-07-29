@@ -1212,10 +1212,17 @@ class FormatosView {
       archivosLote = files;
       if (!archivosLote.length) return;
 
+      console.log('📷 [Escáner] Iniciando procesamiento de lote de fotos:', archivosLote.length, 'archivos.');
+
       $dropzone.classList.add('d-none');
       $previewWrap.classList.remove('d-none');
       $progWrap.classList.remove('d-none');
       $resWrap.classList.add('d-none');
+
+      // Iniciar estado inmediato al 10%
+      $lblEstado.textContent = 'Iniciando análisis de imagen...';
+      $pctEstado.textContent = '10%';
+      $barProgreso.style.width = '10%';
 
       // Renderizar miniaturas del lote
       $lblLoteCount.innerHTML = `<i class="bi bi-images me-1"></i>Imágenes en este lote (${archivosLote.length})`;
@@ -1238,20 +1245,24 @@ class FormatosView {
       // Si existe API Key de Google Gemini, procesar con IA Visión Multimodal (98%+ Precisión)
       if (apiKeyGemini && typeof GeminiVisionService !== 'undefined') {
         try {
+          console.log('🧠 [Escáner] Enviando lote a Google Gemini IA Visión...');
           $lblEstado.textContent = 'Analizando caligrafía manuscrita con Google Gemini IA Visión...';
-          $pctEstado.textContent = '50%';
-          $barProgreso.style.width = '50%';
+          $pctEstado.textContent = '30%';
+          $barProgreso.style.width = '30%';
 
           registrosDetectados = await GeminiVisionService.analizarLoteCuadernos(
             archivosLote,
             apiKeyGemini,
             (actual, total, msg) => {
+              console.log(`🤖 [Gemini IA] Progreso: ${actual}/${total} - ${msg}`);
               $lblEstado.textContent = msg;
-              const subPct = Math.round((actual / total) * 100);
+              const subPct = Math.round(30 + ((actual / total) * 70));
               $pctEstado.textContent = `${subPct}%`;
               $barProgreso.style.width = `${subPct}%`;
             }
           );
+
+          console.log('✅ [Escáner] Gemini IA completado exitosamente. Atenciones extraídas:', registrosDetectados.length);
 
           $pctEstado.textContent = '100%';
           $barProgreso.style.width = '100%';
@@ -1262,13 +1273,15 @@ class FormatosView {
           DomHelpers.mostrarToast(`¡${registrosDetectados.length} atenciones leídas exitosamente con Google Gemini IA Visión!`, 'success');
           return;
         } catch (errIa) {
-          console.warn('Fallo en API Gemini, usando motor local Tesseract como respaldo:', errIa);
+          console.warn('⚠️ [Escáner] Fallo en API Gemini, procesando con motor local y Similitud Léxica:', errIa);
           DomHelpers.mostrarToast(`Aviso IA Gemini: ${errIa.message}. Procesando con motor local...`, 'warning');
         }
       }
 
-      // Motor Local Tesseract como respaldo (Offline / Sin API Key)
+      // Motor Local + Similitud Léxica (Fuzzy Matching) (Offline / Si no hay API Key o falla Gemini)
+      console.log('⚙️ [Escáner] Procesando con motor local (Tesseract + Similitud Léxica)...');
       if (typeof Tesseract === 'undefined') {
+        console.error('❌ [Escáner] Tesseract.js no cargado.');
         DomHelpers.mostrarToast('Tesseract.js no disponible. Verifique la conexión a internet.', 'error');
         $progWrap.classList.add('d-none');
         return;
@@ -1281,18 +1294,20 @@ class FormatosView {
         for (let i = 0; i < totalArchivos; i++) {
           const file = archivosLote[i];
           const pctBase = i / totalArchivos;
-          $lblEstado.textContent = `Analizando imagen ${i + 1} de ${totalArchivos} con motor local...`;
+          $lblEstado.textContent = `Analizando foto ${i + 1} de ${totalArchivos} con motor local...`;
 
           let imagenOptimizada = file;
 
           // Rotar automáticamente si la imagen de la foto está tomada de lado/vertical (alto > ancho)
           try {
+            console.log(`🔄 [Escáner] Verificando orientación de imagen ${i + 1}...`);
             imagenOptimizada = await new Promise((resolve) => {
               const img = new Image();
               const url = URL.createObjectURL(file);
               img.onload = () => {
                 URL.revokeObjectURL(url);
                 if (img.height > img.width) {
+                  console.log(`↪️ [Escáner] Imagen ${i + 1} está de lado (vertical). Rotando 90° automáticamente...`);
                   const canvas = document.createElement('canvas');
                   canvas.width = img.height;
                   canvas.height = img.width;
@@ -1308,18 +1323,22 @@ class FormatosView {
               img.onerror = () => resolve(file);
               img.src = url;
             });
-          } catch (e) {}
+          } catch (e) {
+            console.warn('Advertencia al rotar imagen:', e);
+          }
 
           if (typeof OcrScanner !== 'undefined' && OcrScanner.preprocesarImagen) {
             try { imagenOptimizada = await OcrScanner.preprocesarImagen(imagenOptimizada); } catch (e) {}
           }
 
+          console.log(`🔤 [Escáner] Ejecutando Tesseract OCR en imagen ${i + 1}...`);
           const worker = await Tesseract.createWorker('spa+eng', 1, {
             logger: m => {
               if (m.status === 'recognizing text') {
-                const subPct = (pctBase + (m.progress / totalArchivos)) * 100;
-                $pctEstado.textContent = `${Math.round(subPct)}%`;
-                $barProgreso.style.width = `${Math.round(subPct)}%`;
+                const subPct = Math.round((pctBase + (m.progress / totalArchivos)) * 100);
+                console.log(`⏳ [OCR Local] Progreso: ${subPct}%`);
+                $pctEstado.textContent = `${subPct}%`;
+                $barProgreso.style.width = `${subPct}%`;
               }
             }
           });
