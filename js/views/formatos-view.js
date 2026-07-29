@@ -1185,8 +1185,34 @@ class FormatosView {
           $lblEstado.textContent = `Analizando imagen ${i + 1} de ${totalArchivos} con IA...`;
 
           let imagenOptimizada = file;
+
+          // Rotar automáticamente si la imagen de la foto está tomada de lado/vertical (alto > ancho)
+          try {
+            imagenOptimizada = await new Promise((resolve) => {
+              const img = new Image();
+              const url = URL.createObjectURL(file);
+              img.onload = () => {
+                URL.revokeObjectURL(url);
+                if (img.height > img.width) {
+                  const canvas = document.createElement('canvas');
+                  canvas.width = img.height;
+                  canvas.height = img.width;
+                  const ctx = canvas.getContext('2d');
+                  ctx.translate(canvas.width / 2, canvas.height / 2);
+                  ctx.rotate((90 * Math.PI) / 180);
+                  ctx.drawImage(img, -img.width / 2, -img.height / 2);
+                  canvas.toBlob((b) => resolve(b ? new File([b], file.name, { type: 'image/jpeg' }) : file), 'image/jpeg', 0.95);
+                } else {
+                  resolve(file);
+                }
+              };
+              img.onerror = () => resolve(file);
+              img.src = url;
+            });
+          } catch (e) {}
+
           if (typeof OcrScanner !== 'undefined' && OcrScanner.preprocesarImagen) {
-            try { imagenOptimizada = await OcrScanner.preprocesarImagen(file); } catch (e) {}
+            try { imagenOptimizada = await OcrScanner.preprocesarImagen(imagenOptimizada); } catch (e) {}
           }
 
           const worker = await Tesseract.createWorker('spa+eng', 1, {
@@ -1278,15 +1304,20 @@ class FormatosView {
           `<span class="badge bg-teal text-white py-1 px-2"><i class="bi bi-geo-alt-fill me-1"></i>${DomHelpers.esc(reg.centroExternoDetectado)}</span>` :
           `<span class="text-muted small">—</span>`;
 
+        const strParasitos = (reg.parasitos && reg.parasitos.length) ? reg.parasitos.join(', ') : (reg.resultadoTexto || 'Normal');
+
         tr.innerHTML = `
           <td class="text-center fw-bold text-teal" style="width: 40px;">${idx + 1}</td>
           <td style="width: 115px;">
             <input type="date" class="form-control form-control-sm py-0 input-fecha-rev" data-idx="${idx}" value="${reg.fecha}">
           </td>
-          <td>
-            <div class="fw-semibold text-dark">${DomHelpers.esc(reg.nombrePaciente)}</div>
-            <div class="small text-muted">${DomHelpers.esc(reg.edadPaciente || 'S/E')}</div>
-            ${reg.dudaLectura ? `<div class="badge bg-warning text-dark mt-1" style="font-size: 0.65rem;" title="El OCR leyó artefactos manuscritos en esta línea. Verifique la información."><i class="bi bi-exclamation-triangle-fill me-1"></i>¿Estoy leyendo bien este campo?</div>` : ''}
+          <td style="min-width: 150px;">
+            <input type="text" class="form-control form-control-sm py-0 input-nombre-rev mb-1 fw-semibold" data-idx="${idx}" value="${DomHelpers.esc(reg.nombrePaciente)}" placeholder="Nombre del paciente">
+            <div class="d-flex align-items-center gap-1">
+              <span class="small text-muted">Edad:</span>
+              <input type="text" class="form-control form-control-sm py-0 input-edad-rev" data-idx="${idx}" value="${DomHelpers.esc(reg.edadPaciente || 'S/E')}" style="width: 65px;" placeholder="S/E">
+            </div>
+            ${reg.dudaLectura ? `<div class="badge bg-warning-subtle text-dark border border-warning mt-1" style="font-size: 0.65rem;" title="Haga clic en los campos para corregir si el OCR no leyó perfectamente."><i class="bi bi-pencil-square me-1"></i>Verificar / Editar Datos</div>` : ''}
           </td>
           <td>
             <select class="form-select form-select-sm py-0 select-servicio-rev" data-idx="${idx}">
@@ -1307,10 +1338,8 @@ class FormatosView {
               ${reg.areaId.toUpperCase()} (×${reg.multiplicador})
             </span>
           </td>
-          <td>
-            ${reg.parasitos && reg.parasitos.length ?
-              `<span class="badge bg-warning text-dark"><i class="bi bi-bug me-1"></i>${reg.parasitos.join(', ')}</span>` :
-              `<span class="text-muted small">${DomHelpers.esc(reg.resultadoTexto || 'Normal')}</span>`}
+          <td style="min-width: 140px;">
+            <input type="text" class="form-control form-control-sm py-0 input-parasito-rev" data-idx="${idx}" value="${DomHelpers.esc(strParasitos)}" placeholder="Ej: Blastocystis, Entamoeba">
           </td>
           <td class="text-end">
             <button type="button" class="btn btn-xs btn-outline-danger btn-del-rev py-0 px-2" data-idx="${idx}" title="Eliminar atención">
@@ -1321,11 +1350,36 @@ class FormatosView {
         $tbodyRes.appendChild(tr);
       });
 
-      // Bindings de la tabla interactiva de revisión
+      // Bindings de la tabla interactiva de revisión (Edición directa de todos los campos)
       $tbodyRes.querySelectorAll('.input-fecha-rev').forEach(inp => {
         inp.addEventListener('change', (e) => {
           const idx = parseInt(e.target.dataset.idx, 10);
           if (registrosDetectados[idx]) registrosDetectados[idx].fecha = e.target.value;
+        });
+      });
+
+      $tbodyRes.querySelectorAll('.input-nombre-rev').forEach(inp => {
+        inp.addEventListener('input', (e) => {
+          const idx = parseInt(e.target.dataset.idx, 10);
+          if (registrosDetectados[idx]) registrosDetectados[idx].nombrePaciente = e.target.value;
+        });
+      });
+
+      $tbodyRes.querySelectorAll('.input-edad-rev').forEach(inp => {
+        inp.addEventListener('input', (e) => {
+          const idx = parseInt(e.target.dataset.idx, 10);
+          if (registrosDetectados[idx]) registrosDetectados[idx].edadPaciente = e.target.value;
+        });
+      });
+
+      $tbodyRes.querySelectorAll('.input-parasito-rev').forEach(inp => {
+        inp.addEventListener('input', (e) => {
+          const idx = parseInt(e.target.dataset.idx, 10);
+          if (registrosDetectados[idx]) {
+            const val = e.target.value.trim();
+            registrosDetectados[idx].resultadoTexto = val;
+            registrosDetectados[idx].parasitos = CuadernoParser.extraerParasitos(val);
+          }
         });
       });
 

@@ -262,30 +262,24 @@ class CuadernoParser {
    */
   static extraerParasitos(textoResultado) {
     if (!textoResultado) return [];
-    const resNorm = textoResultado.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-
-    // NSOP = No Se Observan Parásitos
-    if (/\bnsop\b|n\.?s\.?o\.?p\.?|no\s*se\s*observan|negativo|normal/.test(resNorm)) {
-      return [];
-    }
-
+    const resNorm = (textoResultado || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
     const listaParasitos = [
-      { key: 'par_blastocystis', label: 'Blastocystis Ssp', regex: /blastocyst/ },
-      { key: 'par_giardia', label: 'Giardia Duodenale', regex: /giardia/ },
-      { key: 'par_entamoeba_hist', label: 'Entamoeba Histolítica', regex: /entamoeba\s*hist|e\.\s*hist/ },
-      { key: 'par_entamoeba_coli', label: 'Entamoeba Coli', regex: /entamoeba\s*coli|e\.\s*coli/ },
-      { key: 'par_ascaris', label: 'Ascaris Lumbricoides', regex: /ascaris/ },
-      { key: 'par_ancylostoma', label: 'Ancylostoma', regex: /ancylostoma|uncinaria/ },
-      { key: 'par_trichuris', label: 'Trichuris Trichura', regex: /trichuris/ },
-      { key: 'par_enterobius', label: 'Enterobius Vermicularis', regex: /enterobius|oxiuro/ },
-      { key: 'par_hymenolepis_nana', label: 'Hymenolepis Nana', regex: /hymenolepis\s*nana/ },
-      { key: 'par_strongyloides', label: 'Strongyloides Estercoralis', regex: /strongyloid/ },
-      { key: 'par_balantidium', label: 'Balantidium Coli', regex: /balantidium/ },
-      { key: 'par_yodamoeba', label: 'Yodamoeba Busthlii', regex: /yodamoeba/ },
-      { key: 'par_endolimax', label: 'Endolimax Nana', regex: /endolimax/ },
-      { key: 'par_tricomonas', label: 'Tricomonas Hominis', regex: /tricomonas/ },
-      { key: 'par_taenia', label: 'Taenia Sp', regex: /taenia/ },
-      { key: 'par_levaduras', label: 'Levaduras', regex: /levadur/ }
+      { key: 'par_blastocystis', label: 'Blastocystis Ssp', regex: /blastocyst|blastoconid|abts|b\.?\s*hominis/i },
+      { key: 'par_giardia', label: 'Giardia Duodenale', regex: /giardia|g\.?\s*lamblia|g\.?\s*duoden/i },
+      { key: 'par_entamoeba_hist', label: 'Entamoeba Histolítica', regex: /entamoeba|e\.?\s*histolyt|e\.?\s*dispar|q\.?\s*entam/i },
+      { key: 'par_entamoeba_coli', label: 'Entamoeba Coli', regex: /entamoeba\s*coli|e\.?\s*coli|q\.?\s*e\.?\s*coli/i },
+      { key: 'par_ascaris', label: 'Ascaris Lumbricoides', regex: /ascaris|a\.?\s*lumbric/i },
+      { key: 'par_ancylostoma', label: 'Ancylostoma', regex: /ancylostoma|uncinaria|necator/i },
+      { key: 'par_trichuris', label: 'Trichuris Trichura', regex: /trichuris|t\.?\s*trichiura/i },
+      { key: 'par_enterobius', label: 'Enterobius Vermicularis', regex: /enterobius|oxiuro|e\.?\s*vermic/i },
+      { key: 'par_hymenolepis_nana', label: 'Hymenolepis Nana', regex: /hymenolepis|h\.?\s*nana/i },
+      { key: 'par_strongyloides', label: 'Strongyloides Estercoralis', regex: /strongyloid|s\.?\s*stercoral/i },
+      { key: 'par_balantidium', label: 'Balantidium Coli', regex: /balantidium|b\.?\s*coli/i },
+      { key: 'par_yodamoeba', label: 'Yodamoeba Busthlii', regex: /yodamoeba|iodamoeba|i\.?\s*butsch/i },
+      { key: 'par_endolimax', label: 'Endolimax Nana', regex: /endolimax|e\.?\s*nana/i },
+      { key: 'par_tricomonas', label: 'Tricomonas Hominis', regex: /tricomonas|trichomonas|t\.?\s*hominis/i },
+      { key: 'par_taenia', label: 'Taenia Sp', regex: /taenia|t\.?\s*solium|t\.?\s*saginata/i },
+      { key: 'par_levaduras', label: 'Levaduras', regex: /levadur|yeast/i }
     ];
 
     const encontrados = [];
@@ -294,6 +288,17 @@ class CuadernoParser {
         encontrados.push(p.label);
       }
     });
+
+    if (encontrados.length > 0) {
+      return encontrados;
+    }
+
+    // Si no se encontraron parásitos explícitos y la línea dice NSOP
+    if (/\bnsop\b|n\.?s\.?o\.?p\.?|no\s*se\s*observan|negativo|normal/.test(resNorm)) {
+      return [];
+    }
+
+    return [];
 
     return encontrados;
   }
