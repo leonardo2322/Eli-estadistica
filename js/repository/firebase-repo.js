@@ -356,5 +356,42 @@ class FirebaseRepository {
       return [];
     }
   }
+
+  /**
+   * Guarda la API Key de Gemini en Cloud Firestore para compartirla entre todos los dispositivos del proyecto.
+   * @param {string} apiKey 
+   * @returns {Promise<boolean>}
+   */
+  async guardarConfiguracionGemini(apiKey) {
+    if (!db) return false;
+    try {
+      await db.collection('configuracion').doc('gemini_api').set({
+        apiKey: apiKey || '',
+        actualizadoEn: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+      return true;
+    } catch (error) {
+      console.error('Error al guardar API Key de Gemini en Firestore:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Obtiene la API Key de Gemini configurada desde Cloud Firestore.
+   * @returns {Promise<string>}
+   */
+  async obtenerConfiguracionGemini() {
+    if (!db) return '';
+    try {
+      const doc = await db.collection('configuracion').doc('gemini_api').get();
+      if (doc.exists && doc.data() && doc.data().apiKey) {
+        return doc.data().apiKey;
+      }
+      return '';
+    } catch (error) {
+      console.error('Error al obtener API Key de Gemini desde Firestore:', error);
+      return '';
+    }
+  }
 }
 

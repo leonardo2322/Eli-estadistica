@@ -52,9 +52,12 @@ document.addEventListener('DOMContentLoaded', () => {
     bioCtrl.init();
     formatosCtrl.init();
 
-    // Sincronizar automáticamente datos locales y centros externos aprendidos a/desde Cloud Firestore
+    // Sincronizar automáticamente datos locales, centros externos y API Key de Gemini a/desde Cloud Firestore
     if (typeof CuadernoParser !== 'undefined') {
       CuadernoParser.cargarCentrosDesdeFirestore(firebaseRepo);
+    }
+    if (typeof GeminiVisionService !== 'undefined') {
+      GeminiVisionService.cargarApiKeyDesdeFirestore(firebaseRepo);
     }
     firebaseRepo.sincronizarLocalStorageAFirestore(bioRepo).then(res => {
       if (res.ok) {

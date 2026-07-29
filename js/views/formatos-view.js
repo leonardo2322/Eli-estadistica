@@ -1153,9 +1153,10 @@ class FormatosView {
           actualKey
         );
         if (nuevaKey !== null) {
-          GeminiVisionService.guardarApiKey(nuevaKey);
+          const fbRepo = (window.formatosCtrl && window.formatosCtrl.firebaseRepo) ? window.formatosCtrl.firebaseRepo : null;
+          GeminiVisionService.guardarApiKey(nuevaKey, fbRepo);
           if (nuevaKey.trim()) {
-            DomHelpers.mostrarToast('¡API Key de Google Gemini guardada exitosamente! Reconocimiento con IA activado.', 'success');
+            DomHelpers.mostrarToast('¡API Key de Google Gemini guardada y sincronizada con Cloud Firestore! IA activada en todos los dispositivos.', 'success');
           } else {
             DomHelpers.mostrarToast('API Key eliminada. El sistema usará el motor local Tesseract.', 'info');
           }

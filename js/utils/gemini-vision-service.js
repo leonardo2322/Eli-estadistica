@@ -21,12 +21,36 @@ class GeminiVisionService {
   }
 
   /**
-   * Guarda la API Key de Gemini en LocalStorage.
+   * Guarda la API Key de Gemini en LocalStorage y la sincroniza con Cloud Firestore.
    * @param {string} key 
+   * @param {FirebaseRepository} [fbRepo]
    */
-  static guardarApiKey(key) {
-    if (key && typeof key === 'string') {
-      localStorage.setItem(this.STORAGE_KEY, key.trim());
+  static guardarApiKey(key, fbRepo = null) {
+    if (typeof key === 'string') {
+      const trimmed = key.trim();
+      localStorage.setItem(this.STORAGE_KEY, trimmed);
+
+      if (fbRepo && typeof fbRepo.guardarConfiguracionGemini === 'function') {
+        fbRepo.guardarConfiguracionGemini(trimmed);
+      } else if (window.formatosCtrl && window.formatosCtrl.firebaseRepo) {
+        window.formatosCtrl.firebaseRepo.guardarConfiguracionGemini(trimmed);
+      }
+    }
+  }
+
+  /**
+   * Carga la API Key guardada en Cloud Firestore hacia LocalStorage.
+   * @param {FirebaseRepository} fbRepo 
+   */
+  static async cargarApiKeyDesdeFirestore(fbRepo) {
+    if (!fbRepo || typeof fbRepo.obtenerConfiguracionGemini !== 'function') return;
+    try {
+      const keyRemota = await fbRepo.obtenerConfiguracionGemini();
+      if (keyRemota && typeof keyRemota === 'string' && keyRemota.trim()) {
+        localStorage.setItem(this.STORAGE_KEY, keyRemota.trim());
+      }
+    } catch (e) {
+      console.error('Error al sincronizar API Key de Gemini desde Firestore:', e);
     }
   }
 
@@ -49,7 +73,7 @@ class GeminiVisionService {
   }
 
   /**
-   * Analiza una o varias fotos de cuaderno usando Google Gemini 1.5 Flash Vision.
+   * Analiza una o varias fotos de cuaderno usando Google Gemini Visión (probando endpoints disponibles).
    *
    * @param {File[]} archivos 
    * @param {string} [apiKey] 
@@ -62,7 +86,15 @@ class GeminiVisionService {
       throw new Error('API Key de Gemini no configurada. Configure su clave API de Google Gemini para habilitar el reconocimiento con IA.');
     }
 
-    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`;
+    // Lista de nombres de modelos soportados por la API v1beta de Google Studio
+    const modelosNombres = [
+      'gemini-1.5-flash-latest',
+      'gemini-1.5-flash',
+      'gemini-2.0-flash-exp',
+      'gemini-2.5-flash',
+      'gemini-1.5-pro-latest'
+    ];
+
     const atencionesTotales = [];
 
     const promptInstrucciones = `
@@ -119,15 +151,32 @@ Responde ÚNICAMENTE con el objeto JSON válido sin texto explicativo.
         }
       };
 
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestBody)
-      });
+      let response = null;
+      let ultimoError = null;
 
-      if (!response.ok) {
-        const errJson = await response.json().catch(() => ({}));
-        throw new Error(`Error en API Gemini (${response.status}): ${errJson.error?.message || response.statusText}`);
+      // Probar los modelos disponibles secuencialmente en caso de 404
+      for (const modNombre of modelosNombres) {
+        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${modNombre}:generateContent?key=${key}`;
+        try {
+          const resAttempt = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(requestBody)
+          });
+          if (resAttempt.ok) {
+            response = resAttempt;
+            break;
+          } else {
+            const errBody = await resAttempt.json().catch(() => ({}));
+            ultimoError = `(${resAttempt.status}) ${errBody.error?.message || resAttempt.statusText}`;
+          }
+        } catch (errNet) {
+          ultimoError = errNet.message;
+        }
+      }
+
+      if (!response || !response.ok) {
+        throw new Error(`Error en API Gemini: ${ultimoError || 'Modelo no encontrado'}`);
       }
 
       const resData = await response.json();
