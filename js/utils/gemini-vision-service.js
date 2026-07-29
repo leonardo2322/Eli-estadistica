@@ -116,8 +116,14 @@ REGLAS DE SERVICIO:
 Responde ÚNICAMENTE con el objeto JSON válido sin texto explicativo.
 `;
 
-    // URL única y oficial para gemini-1.5-flash
-    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(key)}`;
+    // Nombre oficial del modelo estándar de visión/OCR
+    const modeloNombre = 'gemini-1.5-flash';
+
+    // Lista de endpoints a probar (v1 estable primero, v1beta como respaldo) sin duplicar "models/"
+    const endpointsToTry = [
+      `https://generativelanguage.googleapis.com/v1/models/${modeloNombre}:generateContent?key=${encodeURIComponent(key)}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${modeloNombre}:generateContent?key=${encodeURIComponent(key)}`
+    ];
 
     for (let i = 0; i < archivos.length; i++) {
       const file = archivos[i];
@@ -152,22 +158,37 @@ Responde ÚNICAMENTE con el objeto JSON válido sin texto explicativo.
         }
       };
 
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-goog-api-key': key
-        },
-        body: JSON.stringify(requestBody)
-      });
+      let response = null;
+      let ultimoError = null;
 
-      if (!response.ok) {
-        const errJson = await response.json().catch(() => ({}));
-        const msgErr = errJson.error?.message || response.statusText;
-        if (response.status === 429) {
-          throw new Error(`Límite de cuota excedido (429): ${msgErr}. Espere un momento e intente de nuevo.`);
+      for (const endpointUrl of endpointsToTry) {
+        try {
+          const resAttempt = await fetch(endpointUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-goog-api-key': key
+            },
+            body: JSON.stringify(requestBody)
+          });
+
+          if (resAttempt.ok) {
+            response = resAttempt;
+            break;
+          } else {
+            const errJson = await resAttempt.json().catch(() => ({}));
+            ultimoError = `(${resAttempt.status}) ${errJson.error?.message || resAttempt.statusText}`;
+          }
+        } catch (errNet) {
+          ultimoError = errNet.message;
         }
-        throw new Error(`Error en API Gemini (${response.status}): ${msgErr}`);
+      }
+
+      if (!response || !response.ok) {
+        if (ultimoError && ultimoError.includes('429')) {
+          throw new Error(`Límite de cuota excedido (429): ${ultimoError}. Espere un momento e intente de nuevo.`);
+        }
+        throw new Error(`Error en API Gemini: ${ultimoError || 'No se pudo conectar con el modelo gemini-1.5-flash'}`);
       }
 
       const resData = await response.json();
