@@ -976,6 +976,16 @@ class FormatosView {
     const abrirModal = () => {
       $modal.classList.remove('d-none');
       document.body.style.overflow = 'hidden';
+
+      // Detectar si el usuario está en un dispositivo móvil/teléfono
+      const esMovil = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || ('ontouchstart' in window && window.innerWidth <= 1024);
+      if ($btnCamara) {
+        if (esMovil) {
+          $btnCamara.classList.remove('d-none'); // Mostrar botón de tomar foto directa con cámara en teléfonos
+        } else {
+          $btnCamara.classList.add('d-none'); // Ocultar botón de cámara en PC de escritorio / Laptops
+        }
+      }
     };
 
     const cerrarModal = () => {
@@ -1025,10 +1035,18 @@ class FormatosView {
     }
 
     if ($btnCamara && $inpCamara) {
-      $btnCamara.addEventListener('click', (e) => { e.stopPropagation(); $inpCamara.click(); });
+      $btnCamara.addEventListener('click', (e) => {
+        e.stopPropagation();
+        $inpCamara.value = '';
+        $inpCamara.click();
+      });
     }
     if ($btnGaleria && $inpGaleria) {
-      $btnGaleria.addEventListener('click', (e) => { e.stopPropagation(); $inpGaleria.click(); });
+      $btnGaleria.addEventListener('click', (e) => {
+        e.stopPropagation();
+        $inpGaleria.value = '';
+        $inpGaleria.click();
+      });
     }
 
     if ($dropzone) {
@@ -1157,6 +1175,23 @@ class FormatosView {
         { key: 'cons_externa', label: 'Consulta Externa / Ambulatorio' }
       ];
 
+      const examenesOpciones = [
+        { key: 'hem_general', nombre: 'Hematología Completa', areaId: 'hematologia', mult: 5 },
+        { key: 'sub_56_vsg', nombre: 'VSG', areaId: 'hematologia', mult: 1 },
+        { key: 'uro_general', nombre: 'Orina / Uroanálisis', areaId: 'uroanalisis', mult: 6 },
+        { key: 'cop_general', nombre: 'Coproanálisis / Heces', areaId: 'coproanalisis', mult: 2 },
+        { key: 'ser1_pe', nombre: 'Prueba de Embarazo (HCG)', areaId: 'serologia', mult: 1 },
+        { key: 'ser2_vd', nombre: 'VDRL', areaId: 'serologia', mult: 1 },
+        { key: 'ser2_hiv', nombre: 'HIV', areaId: 'serologia', mult: 1 },
+        { key: 'ser1_ha', nombre: 'Hepatitis A', areaId: 'serologia', mult: 1 },
+        { key: 'ser1_hb', nombre: 'Hepatitis B', areaId: 'serologia', mult: 1 },
+        { key: 'ser1_hc', nombre: 'Hepatitis C', areaId: 'serologia', mult: 1 },
+        { key: 'ser1_cov', nombre: 'COVID-19', areaId: 'serologia', mult: 1 },
+        { key: 'ser2_den', nombre: 'Dengue', areaId: 'serologia', mult: 1 },
+        { key: 'ser2_hp', nombre: 'Helicobacter Pylori', areaId: 'serologia', mult: 1 },
+        { key: 'ser2_aslo', nombre: 'ASLO', areaId: 'serologia', mult: 1 }
+      ];
+
       registrosDetectados.forEach((reg, idx) => {
         const tr = document.createElement('tr');
         const badgeCat = reg.categoriaServicio === 'Hospitalización' ? 'bg-danger' :
@@ -1166,15 +1201,23 @@ class FormatosView {
           <option value="${s.key}" ${s.key === reg.servicioKey ? 'selected' : ''}>${s.label}</option>
         `).join('');
 
+        const optsExm = examenesOpciones.map(e => `
+          <option value="${e.key}" ${e.key === reg.examenKey ? 'selected' : ''}>${e.nombre}</option>
+        `).join('');
+
+        const centroExtBadge = reg.centroExternoDetectado ?
+          `<span class="badge bg-teal text-white py-1 px-2"><i class="bi bi-geo-alt-fill me-1"></i>${DomHelpers.esc(reg.centroExternoDetectado)}</span>` :
+          `<span class="text-muted small">—</span>`;
+
         tr.innerHTML = `
-          <td class="text-center fw-bold text-muted" style="width: 45px;">#${reg.imagenIndex}</td>
-          <td style="width: 120px;">
+          <td class="text-center fw-bold text-teal" style="width: 40px;">${idx + 1}</td>
+          <td style="width: 115px;">
             <input type="date" class="form-control form-control-sm py-0 input-fecha-rev" data-idx="${idx}" value="${reg.fecha}">
           </td>
-          <td class="fw-bold text-teal" style="width: 70px;">${DomHelpers.esc(reg.numPaciente)}</td>
           <td>
             <div class="fw-semibold text-dark">${DomHelpers.esc(reg.nombrePaciente)}</div>
             <div class="small text-muted">${DomHelpers.esc(reg.edadPaciente || 'S/E')}</div>
+            ${reg.dudaLectura ? `<div class="badge bg-warning text-dark mt-1" style="font-size: 0.65rem;" title="El OCR leyó artefactos manuscritos en esta línea. Verifique la información."><i class="bi bi-exclamation-triangle-fill me-1"></i>¿Estoy leyendo bien este campo?</div>` : ''}
           </td>
           <td>
             <select class="form-select form-select-sm py-0 select-servicio-rev" data-idx="${idx}">
@@ -1183,10 +1226,18 @@ class FormatosView {
             <span class="badge ${badgeCat} mt-1" style="font-size: 0.65rem;">${reg.categoriaServicio}</span>
           </td>
           <td>
-            <div class="fw-bold text-teal-dark">${DomHelpers.esc(reg.examenNombre)}</div>
-            <span class="small text-muted">${reg.areaId.toUpperCase()}</span>
+            ${centroExtBadge}
           </td>
-          <td class="text-center fw-bold text-teal">×${reg.multiplicador}</td>
+          <td>
+            <select class="form-select form-select-sm py-0 select-examen-rev" data-idx="${idx}">
+              ${optsExm}
+            </select>
+          </td>
+          <td class="text-center">
+            <span class="badge bg-teal-subtle text-teal-dark fw-bold span-area-mult-${idx}">
+              ${reg.areaId.toUpperCase()} (×${reg.multiplicador})
+            </span>
+          </td>
           <td>
             ${reg.parasitos && reg.parasitos.length ?
               `<span class="badge bg-warning text-dark"><i class="bi bi-bug me-1"></i>${reg.parasitos.join(', ')}</span>` :
@@ -1219,6 +1270,26 @@ class FormatosView {
             if (sel.value === 'cons_externa') registrosDetectados[idx].categoriaServicio = 'Consulta Externa';
             else if (sel.value === 'cons_especial') registrosDetectados[idx].categoriaServicio = 'Consulta Especial';
             else registrosDetectados[idx].categoriaServicio = 'Hospitalización';
+          }
+        });
+      });
+
+      $tbodyRes.querySelectorAll('.select-examen-rev').forEach(sel => {
+        sel.addEventListener('change', (e) => {
+          const idx = parseInt(e.target.dataset.idx, 10);
+          const exmKey = sel.value;
+          const exmObj = examenesOpciones.find(ex => ex.key === exmKey);
+          if (registrosDetectados[idx] && exmObj) {
+            registrosDetectados[idx].examenKey = exmObj.key;
+            registrosDetectados[idx].examenNombre = exmObj.nombre;
+            registrosDetectados[idx].areaId = exmObj.areaId;
+            registrosDetectados[idx].multiplicador = exmObj.mult;
+
+            // Actualizar la celda visual de área y multiplicador
+            const badgeSpan = $tbodyRes.querySelector(`.span-area-mult-${idx}`);
+            if (badgeSpan) {
+              badgeSpan.textContent = `${exmObj.areaId.toUpperCase()} (×${exmObj.mult})`;
+            }
           }
         });
       });

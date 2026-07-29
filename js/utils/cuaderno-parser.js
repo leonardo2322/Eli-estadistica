@@ -123,6 +123,30 @@ class CuadernoParser {
   }
 
   /**
+   * Normaliza y limpia artefactos frecuentes de lectura OCR en el nombre y edad del paciente.
+   * "Esopo", "[Esopo", "Eu", "S/E", "ENE" son limpiados o marcados para confirmación visual.
+   * @param {string} texto 
+   * @returns {{ textoLimpio: string, dudaLectura: boolean }}
+   */
+  static limpiarNombreEdadOcr(texto) {
+    if (!texto) return { textoLimpio: 'S/E', dudaLectura: false };
+    let t = texto.trim();
+    let dudaLectura = false;
+
+    if (/\[?esopo?\]?|\bnsop\b/gi.test(t)) {
+      dudaLectura = true;
+      t = t.replace(/\[?esopo?\]?|\bnsop\b/gi, '').trim();
+    }
+
+    t = t.replace(/\bene\b|\bs\.?e\b|\bsin\s*edad\b/gi, 'S/E').trim();
+
+    return {
+      textoLimpio: t || 'S/E',
+      dudaLectura
+    };
+  }
+
+  /**
    * Clasifica el servicio de atención basándose en el número del paciente y el texto del servicio.
    *
    * REGLAS ACTUALIZADAS DE LA LICENCIADA:
@@ -146,16 +170,26 @@ class CuadernoParser {
     const centrosExternos = this.obtenerCentrosExternos();
 
     // 1. Verificar si coincide explícitamente con centros de Consulta Externa / Ambulatorios
-    const esExterno = centrosExternos.some(centro => textNorm.includes(centro));
-    if (esExterno) {
-      return { servicioKey: 'cons_externa', servicioNombre: 'Consulta Externa', Categoria: 'Consulta Externa' };
+    const centroEncontrado = centrosExternos.find(centro => textNorm.includes(centro));
+    if (centroEncontrado) {
+      return {
+        servicioKey: 'cons_externa',
+        servicioNombre: 'Consulta Externa',
+        Categoria: 'Consulta Externa',
+        centroExternoDetectado: centroEncontrado.toUpperCase()
+      };
     }
 
     // Auto-aprendizaje: si el texto tiene formato de ambulatorio o nombre de centro desconocido (ej. "Ambulatorio Guaraque"), aprenderlo
     const matchAmbulatorio = textNorm.match(/(?:ambulatorio|sector|barrio|poblado|comunidad)\s+([a-z0-9]+)/);
     if (matchAmbulatorio && matchAmbulatorio[1]) {
       this.aprenderCentroExterno(matchAmbulatorio[1]);
-      return { servicioKey: 'cons_externa', servicioNombre: 'Consulta Externa', Categoria: 'Consulta Externa' };
+      return {
+        servicioKey: 'cons_externa',
+        servicioNombre: 'Consulta Externa',
+        Categoria: 'Consulta Externa',
+        centroExternoDetectado: matchAmbulatorio[1].toUpperCase()
+      };
     }
 
     // 2. Verificar Observación (Pertenece a Hospitalización)
@@ -222,12 +256,18 @@ class CuadernoParser {
 
   /**
    * Extrae los parásitos detectados en una línea o resultado de Coproanálisis/Heces.
+   * Si el resultado indica NSOP / "No Se Observan Parásitos", retorna array vacío.
    * @param {string} textoResultado 
    * @returns {string[]} Array de nombres de parásitos
    */
   static extraerParasitos(textoResultado) {
     if (!textoResultado) return [];
     const resNorm = textoResultado.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+    // NSOP = No Se Observan Parásitos
+    if (/\bnsop\b|n\.?s\.?o\.?p\.?|no\s*se\s*observan|negativo|normal/.test(resNorm)) {
+      return [];
+    }
 
     const listaParasitos = [
       { key: 'par_blastocystis', label: 'Blastocystis Ssp', regex: /blastocyst/ },
@@ -261,6 +301,7 @@ class CuadernoParser {
   /**
    * Determina el examen y área del laboratorio a partir del texto y resultado de la línea.
    * Aplica las reglas de multiplicador de la Licenciada.
+   * NSOP = Coproanálisis (No Se Observan Parásitos).
    *
    * @param {string} textoExamen 
    * @param {string} textoResultado 
@@ -268,6 +309,11 @@ class CuadernoParser {
    */
   static inferirExamenYMultiplicador(textoExamen, textoResultado) {
     const combinado = `${textoExamen || ''} ${textoResultado || ''}`.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+    // NSOP = Coproanálisis / Heces (No Se Observan Parásitos) -> Multiplicador 2
+    if (/\bnsop\b|n\.?s\.?o\.?p\.?/.test(combinado)) {
+      return { examenNombre: 'Coproanálisis (NSOP - No Se Observan Parásitos)', examenKey: 'cop_general', areaId: 'coproanalisis', multiplicador: 2 };
+    }
 
     // 1. VSG / VCG (Velocidad de Sedimentación Globular) -> Multiplicador 1
     if (/vsg|vcg|velocidad.*sediment/.test(combinado)) {
@@ -347,16 +393,18 @@ class CuadernoParser {
         const regexFila = /^(?:p\.?n\s*)?([a-zA-Z0-9]+)\s+([a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+?)\s+(\d+\s*(?:años|a\b)?)\s+([a-zA-Z0-9\/\s]+?)(?:\s+(.*))?$/i;
         const match = linea.match(regexFila);
 
-        let numPaciente = '';
+        let numPaciente    = '';
         let nombrePaciente = '';
-        let edadPaciente = '';
-        let textoServicio = '';
+        let edadPaciente   = '';
+        let textoServicio  = '';
         let textoResultado = '';
+        let rawNombre      = '';
+        let rawEdad        = '';
 
         if (match) {
           numPaciente     = match[1];
-          nombrePaciente  = match[2].trim();
-          edadPaciente    = match[3].trim();
+          rawNombre       = match[2].trim();
+          rawEdad         = match[3].trim();
           textoServicio   = match[4].trim();
           textoResultado  = (match[5] || '').trim();
         } else {
@@ -364,9 +412,16 @@ class CuadernoParser {
           const numeros = linea.match(/\b[a-zA-Z0-9]{1,4}\b/g) || [];
           if (!numeros.length) return;
           numPaciente = numeros[0];
-          nombrePaciente = linea.replace(numPaciente, '').trim();
-          textoServicio = 'General';
+          rawNombre = linea.replace(numPaciente, '').trim();
+          textoServicio = rawNombre;
         }
+
+        const nombreLimpioObj = this.limpiarNombreEdadOcr(rawNombre);
+        const edadLimpiaObj   = this.limpiarNombreEdadOcr(rawEdad);
+        const dudaLectura     = nombreLimpioObj.dudaLectura || edadLimpiaObj.dudaLectura || /\[?esopo?\]?/i.test(linea);
+
+        nombrePaciente = nombreLimpioObj.textoLimpio || `Paciente #${numPaciente}`;
+        edadPaciente   = edadLimpiaObj.textoLimpio !== 'S/E' ? edadLimpiaObj.textoLimpio : (rawEdad || 'S/E');
 
         // Clasificar servicio y multiplicador de examen
         const servicioInfo = this.clasificarServicio(numPaciente, textoServicio);
@@ -378,18 +433,20 @@ class CuadernoParser {
           imagenIndex:     indexImagen + 1,
           fecha:           fechaActiva,
           numPaciente,
-          nombrePaciente:  nombrePaciente || `Paciente #${numPaciente}`,
+          nombrePaciente,
           edadPaciente,
           servicioTextoOriginal: textoServicio,
           servicioKey:     servicioInfo.servicioKey,
           servicioNombre:  servicioInfo.servicioNombre,
           categoriaServicio: servicioInfo.Categoria,
+          centroExternoDetectado: servicioInfo.centroExternoDetectado || '',
           examenNombre:    examenInfo.examenNombre,
           examenKey:       examenInfo.examenKey,
           areaId:          examenInfo.areaId,
           multiplicador:   examenInfo.multiplicador,
           resultadoTexto:  textoResultado,
           parasitos:       parasitos,
+          dudaLectura:     dudaLectura,
           lineaOriginal:   linea
         });
       });
