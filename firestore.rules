@@ -22,6 +22,10 @@ service cloud.firestore {
       allow read, write: if true;
     }
 
+    match /configuracion/{configId} {
+      allow read, write: if true;
+    }
+
     match /_ping/{docId} {
       allow read, write: if true;
     }

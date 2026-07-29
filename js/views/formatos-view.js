@@ -1149,14 +1149,14 @@ class FormatosView {
       $btnConfigKey.addEventListener('click', () => {
         const actualKey = GeminiVisionService.obtenerApiKey();
         const nuevaKey = prompt(
-          'Ingrese su API Key gratuita de Google Gemini 1.5 Flash:\n(Obtenga una gratis en https://aistudio.google.com/app/apikey)',
+          'Ingrese su API Key gratuita de Google Gemini:\n(Obténgala en https://aistudio.google.com/app/apikey)',
           actualKey
         );
         if (nuevaKey !== null) {
           const fbRepo = (window.formatosCtrl && window.formatosCtrl.firebaseRepo) ? window.formatosCtrl.firebaseRepo : null;
           GeminiVisionService.guardarApiKey(nuevaKey, fbRepo);
           if (nuevaKey.trim()) {
-            DomHelpers.mostrarToast('¡API Key de Google Gemini guardada y sincronizada con Cloud Firestore! IA activada en todos los dispositivos.', 'success');
+            DomHelpers.mostrarToast('¡API Key de Google Gemini guardada y sincronizada con Cloud Firestore! IA activada.', 'success');
           } else {
             DomHelpers.mostrarToast('API Key eliminada. El sistema usará el motor local Tesseract.', 'info');
           }

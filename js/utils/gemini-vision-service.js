@@ -86,7 +86,6 @@ class GeminiVisionService {
       throw new Error('API Key de Gemini no configurada. Configure su clave API de Google Gemini para habilitar el reconocimiento con IA.');
     }
 
-    // Lista de nombres de modelos soportados por la API v1beta de Google Studio
     const modelosNombres = [
       'gemini-1.5-flash-latest',
       'gemini-1.5-flash',
