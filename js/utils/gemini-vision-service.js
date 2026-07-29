@@ -153,29 +153,37 @@ Responde ÚNICAMENTE con el objeto JSON válido sin texto explicativo.
       let response = null;
       let ultimoError = null;
 
-      // Probar los modelos disponibles secuencialmente en caso de 404
+      // Probar los modelos y métodos de autenticación disponibles secuencialmente
       for (const modNombre of modelosNombres) {
-        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${modNombre}:generateContent?key=${key}`;
-        try {
-          const resAttempt = await fetch(endpoint, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(requestBody)
-          });
-          if (resAttempt.ok) {
-            response = resAttempt;
-            break;
-          } else {
-            const errBody = await resAttempt.json().catch(() => ({}));
-            ultimoError = `(${resAttempt.status}) ${errBody.error?.message || resAttempt.statusText}`;
+        const endpointsToTry = [
+          { url: `https://generativelanguage.googleapis.com/v1beta/models/${modNombre}:generateContent?key=${key}`, headers: { 'Content-Type': 'application/json' } },
+          { url: `https://generativelanguage.googleapis.com/v1beta/models/${modNombre}:generateContent`, headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key } },
+          { url: `https://generativelanguage.googleapis.com/v1beta/models/${modNombre}:generateContent`, headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` } }
+        ];
+
+        for (const ep of endpointsToTry) {
+          try {
+            const resAttempt = await fetch(ep.url, {
+              method: 'POST',
+              headers: ep.headers,
+              body: JSON.stringify(requestBody)
+            });
+            if (resAttempt.ok) {
+              response = resAttempt;
+              break;
+            } else {
+              const errBody = await resAttempt.json().catch(() => ({}));
+              ultimoError = `(${resAttempt.status}) ${errBody.error?.message || resAttempt.statusText}`;
+            }
+          } catch (errNet) {
+            ultimoError = errNet.message;
           }
-        } catch (errNet) {
-          ultimoError = errNet.message;
         }
+        if (response && response.ok) break;
       }
 
       if (!response || !response.ok) {
-        throw new Error(`Error en API Gemini: ${ultimoError || 'Modelo no encontrado'}`);
+        throw new Error(`Error en API Gemini (${ultimoError || 'Servicio no disponible'}). Verifique la clave configurada o la conexión a internet.`);
       }
 
       const resData = await response.json();
