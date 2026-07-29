@@ -1144,6 +1144,25 @@ class FormatosView {
       });
     });
 
+    const $btnConfigKey = document.getElementById('btn-config-gemini-key');
+    if ($btnConfigKey) {
+      $btnConfigKey.addEventListener('click', () => {
+        const actualKey = GeminiVisionService.obtenerApiKey();
+        const nuevaKey = prompt(
+          'Ingrese su API Key gratuita de Google Gemini 1.5 Flash:\n(Obtenga una gratis en https://aistudio.google.com/app/apikey)',
+          actualKey
+        );
+        if (nuevaKey !== null) {
+          GeminiVisionService.guardarApiKey(nuevaKey);
+          if (nuevaKey.trim()) {
+            DomHelpers.mostrarToast('¡API Key de Google Gemini guardada exitosamente! Reconocimiento con IA activado.', 'success');
+          } else {
+            DomHelpers.mostrarToast('API Key eliminada. El sistema usará el motor local Tesseract.', 'info');
+          }
+        }
+      });
+    }
+
     const procesarArchivosLote = async (files) => {
       archivosLote = files;
       if (!archivosLote.length) return;
@@ -1169,6 +1188,41 @@ class FormatosView {
         $gridThumbs.appendChild(thumb);
       });
 
+      const apiKeyGemini = GeminiVisionService.obtenerApiKey();
+
+      // Si existe API Key de Google Gemini, procesar con IA Visión Multimodal (98%+ Precisión)
+      if (apiKeyGemini && typeof GeminiVisionService !== 'undefined') {
+        try {
+          $lblEstado.textContent = 'Analizando caligrafía manuscrita con Google Gemini IA Visión...';
+          $pctEstado.textContent = '50%';
+          $barProgreso.style.width = '50%';
+
+          registrosDetectados = await GeminiVisionService.analizarLoteCuadernos(
+            archivosLote,
+            apiKeyGemini,
+            (actual, total, msg) => {
+              $lblEstado.textContent = msg;
+              const subPct = Math.round((actual / total) * 100);
+              $pctEstado.textContent = `${subPct}%`;
+              $barProgreso.style.width = `${subPct}%`;
+            }
+          );
+
+          $pctEstado.textContent = '100%';
+          $barProgreso.style.width = '100%';
+          $progWrap.classList.add('d-none');
+          $resWrap.classList.remove('d-none');
+
+          renderTablaRevision();
+          DomHelpers.mostrarToast(`¡${registrosDetectados.length} atenciones leídas exitosamente con Google Gemini IA Visión!`, 'success');
+          return;
+        } catch (errIa) {
+          console.warn('Fallo en API Gemini, usando motor local Tesseract como respaldo:', errIa);
+          DomHelpers.mostrarToast(`Aviso IA Gemini: ${errIa.message}. Procesando con motor local...`, 'warning');
+        }
+      }
+
+      // Motor Local Tesseract como respaldo (Offline / Sin API Key)
       if (typeof Tesseract === 'undefined') {
         DomHelpers.mostrarToast('Tesseract.js no disponible. Verifique la conexión a internet.', 'error');
         $progWrap.classList.add('d-none');
@@ -1182,7 +1236,7 @@ class FormatosView {
         for (let i = 0; i < totalArchivos; i++) {
           const file = archivosLote[i];
           const pctBase = i / totalArchivos;
-          $lblEstado.textContent = `Analizando imagen ${i + 1} de ${totalArchivos} con IA...`;
+          $lblEstado.textContent = `Analizando imagen ${i + 1} de ${totalArchivos} con motor local...`;
 
           let imagenOptimizada = file;
 
