@@ -29,6 +29,14 @@ class FormatosController {
   }
 
   /**
+   * Vincula el repositorio de Bioanálisis para inserción de atenciones de cuadernos.
+   * @param {BioanalisisRepository} bioRepo 
+   */
+  setBioanalisisRepository(bioRepo) {
+    this.bioRepo = bioRepo;
+  }
+
+  /**
    * Vincula el repositorio de Cloud Firestore para persistencia remota.
    * @param {FirebaseRepository} fbRepo 
    */
@@ -82,17 +90,111 @@ class FormatosController {
   }
 
   /**
-   * Inyecta los datos extraídos de la foto / IA a la grilla actual de Formatos.
-   * @param {object} datosExtraidos – { [filaId]: { [dia]: valor } }
+   * Inyecta los datos extraídos de la foto / IA a la grilla actual de Formatos y al Registro de Atenciones.
+   * Soporta tanto grillas numéricas crudas como arrays de atenciones agrupadas desde CuadernoParser.
+   * @param {object|Array} datosExtraidos
    */
   aplicarDatosFoto(datosExtraidos) {
+    if (!datosExtraidos) return;
+
+    // Caso A: Array de atenciones agrupadas del CuadernoParser
+    if (Array.isArray(datosExtraidos)) {
+      if (!datosExtraidos.length) return;
+
+      const serviciosExistentes = this.bioRepo ? this.bioRepo.obtenerServicios() : [];
+      const examenesExistentes  = this.bioRepo ? this.bioRepo.obtenerExamenes() : [];
+
+      datosExtraidos.forEach(item => {
+        // 1. Buscar o registrar servicio
+        let srv = serviciosExistentes.find(s => s.key === item.servicioKey || s.nombre.toLowerCase() === item.servicioNombre.toLowerCase());
+        if (!srv && this.bioRepo) {
+          srv = this.bioRepo.guardarServicio({
+            nombre: item.servicioNombre,
+            key: item.servicioKey,
+            fecha: item.fecha,
+            areaId: item.areaId || 'hematologia'
+          });
+          serviciosExistentes.push(srv);
+        }
+
+        // 2. Buscar o registrar examen
+        let exm = examenesExistentes.find(e => e.key === item.examenKey || e.nombre.toLowerCase() === item.examenNombre.toLowerCase());
+        if (!exm && this.bioRepo) {
+          exm = this.bioRepo.guardarExamen({
+            nombre: item.examenNombre,
+            key: item.examenKey,
+            areaId: item.areaId || 'hematologia',
+            valor: item.multiplicador || 5
+          });
+          examenesExistentes.push(exm);
+        }
+
+        // 3. Insertar atención localmente en BioanalisisRepository
+        if (this.bioRepo && srv && exm) {
+          this.bioRepo.guardarPaciente({
+            fecha: item.fecha,
+            servicioId: srv.id,
+            examenId: exm.id,
+            cantidad: item.cantidadPacientes,
+            total: item.totalCalculado
+          });
+        }
+
+        // 4. Inyectar parásitos detectados en la tabla de epidemiología de Coproanálisis si aplica
+        if (item.parasitosAcumulados && item.parasitosAcumulados.length) {
+          const { ano, mes, dia } = DateUtils.parsearFecha(item.fecha);
+          const turnoId = DateUtils.getTurnoActual();
+          const mapaParasitos = {
+            'Blastocystis Ssp': 'par_blastocystis',
+            'Giardia Duodenale': 'par_giardia',
+            'Entamoeba Histolítica': 'par_entamoeba_hist',
+            'Entamoeba Coli': 'par_entamoeba_coli',
+            'Ascaris Lumbricoides': 'par_ascaris',
+            'Ancylostoma': 'par_ancylostoma',
+            'Trichuris Trichura': 'par_trichuris',
+            'Enterobius Vermicularis': 'par_enterobius',
+            'Hymenolepis Nana': 'par_hymenolepis_nana',
+            'Strongyloides Estercoralis': 'par_strongyloides',
+            'Balantidium Coli': 'par_balantidium',
+            'Yodamoeba Busthlii': 'par_yodamoeba',
+            'Endolimax Nana': 'par_endolimax',
+            'Tricomonas Hominis': 'par_tricomonas',
+            'Taenia Sp': 'par_taenia',
+            'Levaduras': 'par_levaduras'
+          };
+
+          item.parasitosAcumulados.forEach(pNombre => {
+            const filaParId = mapaParasitos[pNombre];
+            if (filaParId) {
+              const valPrev = this.repo.obtenerCelda('coproanalisis', 'coproanalisis_h1', turnoId, ano, mes, filaParId, dia);
+              this.repo.actualizarCelda('coproanalisis', 'coproanalisis_h1', turnoId, ano, mes, filaParId, dia, valPrev + 1);
+            }
+          });
+        }
+
+        // 5. Incrementar celdas en Formatos
+        this.incrementarFormatosDesdeRegistro({
+          fecha: item.fecha,
+          servicioId: srv ? srv.id : null,
+          examenId: exm ? exm.id : null,
+          cantidad: item.cantidadPacientes,
+          total: item.totalCalculado
+        }, examenesExistentes, serviciosExistentes, false);
+      });
+
+      this._cargarGrilla();
+      DomHelpers.mostrarToast(`¡${datosExtraidos.length} grupos de atención inyectados exitosamente en LocalStorage y Formatos!`, 'success');
+      return;
+    }
+
+    // Caso B: Formato de grilla directa de celdas
     const areaId  = this.view.getAreaId();
     const hojaId  = this.view.getHojaId();
     const turnoId = this.view.getTurnoId();
     const mes     = this.view.getMes();
     const ano     = this.view.getAno();
 
-    if (!areaId || !datosExtraidos) return;
+    if (!areaId) return;
 
     Object.keys(datosExtraidos).forEach(filaId => {
       Object.keys(datosExtraidos[filaId] || {}).forEach(dia => {
@@ -102,7 +204,7 @@ class FormatosController {
     });
 
     this._cargarGrilla();
-    DomHelpers.mostrarToast('¡Datos de la foto aplicados a la grilla exitosamente!', 'success');
+    DomHelpers.mostrarToast('¡Datos aplicados a la grilla exitosamente!', 'success');
   }
 
   // ─────────────────────────────────────────────────────────────

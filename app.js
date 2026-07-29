@@ -41,9 +41,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const bioCtrl      = new BioanalisisController(bioRepo, appView);
   const formatosCtrl = new FormatosController(formatosRepo, formatosView);
 
-  // ── Vincular Firebase con los Repositorios/Controladores ─────
+  // ── Vincular Firebase y Repositorios con los Controladores ───
   bioRepo.setFirebaseRepository(firebaseRepo);
   formatosCtrl.setFirebaseRepository(firebaseRepo);
+  formatosCtrl.setBioanalisisRepository(bioRepo);
 
   // ── Arranque: el login notifica cuando el usuario entra ─────
   loginView.bind(() => {
@@ -51,7 +52,10 @@ document.addEventListener('DOMContentLoaded', () => {
     bioCtrl.init();
     formatosCtrl.init();
 
-    // Sincronizar automáticamente datos locales a Cloud Firestore en segundo plano
+    // Sincronizar automáticamente datos locales y centros externos aprendidos a/desde Cloud Firestore
+    if (typeof CuadernoParser !== 'undefined') {
+      CuadernoParser.cargarCentrosDesdeFirestore(firebaseRepo);
+    }
     firebaseRepo.sincronizarLocalStorageAFirestore(bioRepo).then(res => {
       if (res.ok) {
         console.log(`🔥 Cloud Firestore: ${res.mensaje}`);

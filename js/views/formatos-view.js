@@ -938,8 +938,10 @@ class FormatosView {
   }
 
   /**
-   * Conecta los controles del Modal de Escáner de Foto e IA.
-   * @param {Function} onAplicarFoto – Callback que recibe (datosExtraidos)
+   * Conecta los controles del Modal de Escáner de Cuadernos de Bioanálisis (IA).
+   * Soporta selección de lote de imágenes con continuidad de fecha,
+   * tabla interactiva de revisión pre-inserción y aprendizaje de centros externos.
+   * @param {Function} onAplicarFoto – Callback que recibe las atenciones agrupadas para guardar localmente
    */
   bindEscanerFoto(onAplicarFoto) {
     const $btnEscanear = document.getElementById('fmt-btn-escanear-foto');
@@ -952,7 +954,8 @@ class FormatosView {
     const $inpGaleria  = document.getElementById('inp-foto-galeria');
     const $inpFoto     = document.getElementById('inp-foto-planilla');
     const $previewWrap = document.getElementById('contenedor-preview-foto');
-    const $imgPreview  = document.getElementById('img-preview-foto');
+    const $lblLoteCount= document.getElementById('lbl-lote-count');
+    const $gridThumbs  = document.getElementById('grid-lote-thumbnails');
     const $btnReemplaz = document.getElementById('btn-reemplazar-foto');
     const $progWrap    = document.getElementById('contenedor-progreso-ocr');
     const $lblEstado   = document.getElementById('lbl-estado-ocr');
@@ -961,16 +964,16 @@ class FormatosView {
     const $resWrap     = document.getElementById('contenedor-resultados-ocr');
     const $tbodyRes    = document.getElementById('tbody-resultados-ocr');
     const $btnAplicar  = document.getElementById('btn-aplicar-foto-formato');
+    const $btnCancelar = document.getElementById('btn-cancelar-atenciones');
+    const $btnAprender = document.getElementById('btn-aprender-centro');
+    const $lblResumenCount = document.getElementById('lbl-resumen-atenciones-count');
 
     if (!$btnEscanear || !$modal) return;
 
-    let datosExtraidosTemporal = null;
+    let archivosLote = [];
+    let registrosDetectados = [];
 
     const abrirModal = () => {
-      if (!this.getAreaId()) {
-        DomHelpers.mostrarToast('Seleccione un área antes de escanear una foto.', 'error');
-        return;
-      }
       $modal.classList.remove('d-none');
       document.body.style.overflow = 'hidden';
     };
@@ -982,163 +985,272 @@ class FormatosView {
     };
 
     const resetForm = () => {
+      archivosLote = [];
+      registrosDetectados = [];
       if ($inpFoto) $inpFoto.value = '';
       if ($inpCamara) $inpCamara.value = '';
       if ($inpGaleria) $inpGaleria.value = '';
-      $previewWrap.classList.add('d-none');
-      $dropzone.classList.remove('d-none');
-      $progWrap.classList.add('d-none');
-      $resWrap.classList.add('d-none');
-      $tbodyRes.innerHTML = '';
-      datosExtraidosTemporal = null;
+      if ($previewWrap) $previewWrap.classList.add('d-none');
+      if ($gridThumbs) $gridThumbs.innerHTML = '';
+      if ($dropzone) $dropzone.classList.remove('d-none');
+      if ($progWrap) $progWrap.classList.add('d-none');
+      if ($resWrap) $resWrap.classList.add('d-none');
+      if ($tbodyRes) $tbodyRes.innerHTML = '';
     };
 
     $btnEscanear.addEventListener('click', abrirModal);
     $btnCerrar.addEventListener('click', cerrarModal);
-    $btnReemplaz.addEventListener('click', () => resetForm());
+    if ($btnCancelar) $btnCancelar.addEventListener('click', cerrarModal);
+    if ($btnReemplaz) $btnReemplaz.addEventListener('click', () => resetForm());
+
+    if ($btnAprender) {
+      $btnAprender.addEventListener('click', () => {
+        const nuevo = prompt('Ingrese el nombre o abreviatura del nuevo centro de consulta externa / ambulatorio (ej: CEMCA, ROA, Amparo, Río Negro, Guaraque):');
+        if (nuevo && nuevo.trim()) {
+          const fbRepo = (window.formatosCtrl && window.formatosCtrl.firebaseRepo) ? window.formatosCtrl.firebaseRepo : null;
+          CuadernoParser.aprenderCentroExterno(nuevo, fbRepo);
+          DomHelpers.mostrarToast(`¡Centro "${nuevo.trim().toUpperCase()}" aprendido y sincronizado con Cloud Firestore! Re-procesando la lista...`, 'success');
+          // Re-clasificar atenciones en pantalla
+          registrosDetectados.forEach(r => {
+            const reClas = CuadernoParser.clasificarServicio(r.numPaciente, r.servicioTextoOriginal);
+            if (reClas.servicioKey === 'cons_externa') {
+              r.servicioKey = reClas.servicioKey;
+              r.servicioNombre = reClas.servicioNombre;
+              r.categoriaServicio = reClas.Categoria;
+            }
+          });
+          renderTablaRevision();
+        }
+      });
+    }
 
     if ($btnCamara && $inpCamara) {
-      $btnCamara.addEventListener('click', (e) => {
-        e.stopPropagation();
-        $inpCamara.click();
-      });
+      $btnCamara.addEventListener('click', (e) => { e.stopPropagation(); $inpCamara.click(); });
     }
-
     if ($btnGaleria && $inpGaleria) {
-      $btnGaleria.addEventListener('click', (e) => {
-        e.stopPropagation();
-        $inpGaleria.click();
-      });
+      $btnGaleria.addEventListener('click', (e) => { e.stopPropagation(); $inpGaleria.click(); });
     }
 
-    $dropzone.addEventListener('click', (e) => {
-      if (e.target.closest('#btn-escaner-camara') || e.target.closest('#btn-escaner-galeria')) return;
-      if ($inpGaleria) $inpGaleria.click();
-      else if ($inpFoto) $inpFoto.click();
-    });
+    if ($dropzone) {
+      $dropzone.addEventListener('click', (e) => {
+        if (e.target.closest('#btn-escaner-camara') || e.target.closest('#btn-escaner-galeria')) return;
+        if ($inpGaleria) $inpGaleria.click();
+        else if ($inpFoto) $inpFoto.click();
+      });
 
-    $dropzone.addEventListener('dragover', e => { e.preventDefault(); $dropzone.style.borderColor = 'var(--teal)'; });
-    $dropzone.addEventListener('dragleave', e => { e.preventDefault(); $dropzone.style.borderColor = '#cbd5e1'; });
-    $dropzone.addEventListener('drop', e => {
-      e.preventDefault();
-      if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-        procesarArchivo(e.dataTransfer.files[0]);
-      }
-    });
+      $dropzone.addEventListener('dragover', e => { e.preventDefault(); $dropzone.style.borderColor = 'var(--teal)'; });
+      $dropzone.addEventListener('dragleave', e => { e.preventDefault(); $dropzone.style.borderColor = '#cbd5e1'; });
+      $dropzone.addEventListener('drop', e => {
+        e.preventDefault();
+        if (e.dataTransfer.files && e.dataTransfer.files.length) {
+          procesarArchivosLote(Array.from(e.dataTransfer.files));
+        }
+      });
+    }
 
     [$inpCamara, $inpGaleria, $inpFoto].forEach(inp => {
       if (!inp) return;
       inp.addEventListener('change', () => {
-        if (inp.files && inp.files[0]) {
-          procesarArchivo(inp.files[0]);
+        if (inp.files && inp.files.length) {
+          procesarArchivosLote(Array.from(inp.files));
         }
       });
     });
 
-    const procesarArchivo = async (file) => {
+    const procesarArchivosLote = async (files) => {
+      archivosLote = files;
+      if (!archivosLote.length) return;
+
       $dropzone.classList.add('d-none');
       $previewWrap.classList.remove('d-none');
       $progWrap.classList.remove('d-none');
       $resWrap.classList.add('d-none');
 
-      const url = URL.createObjectURL(file);
-      $imgPreview.src = url;
-
-      const area = HOSPITAL_AREAS.find(a => a.id === this.getAreaId());
-      const hoja = area?.hojas.find(h => h.id === this.getHojaId()) || area?.hojas[0];
-      const filasDisponibles = [];
-      (hoja?.grupos || []).forEach(g => {
-        g.filas.forEach(f => {
-          if (!f.esTotal) filasDisponibles.push(f);
-        });
+      // Renderizar miniaturas del lote
+      $lblLoteCount.innerHTML = `<i class="bi bi-images me-1"></i>Imágenes en este lote (${archivosLote.length})`;
+      $gridThumbs.innerHTML = '';
+      archivosLote.forEach((f, i) => {
+        const url = URL.createObjectURL(f);
+        const thumb = document.createElement('div');
+        thumb.className = 'position-relative border rounded overflow-hidden shadow-sm flex-shrink-0';
+        thumb.style.width = '70px';
+        thumb.style.height = '70px';
+        thumb.innerHTML = `
+          <img src="${url}" class="w-100 h-100" style="object-fit: cover;">
+          <span class="position-absolute bottom-0 end-0 bg-dark text-white px-1 py-0 small fw-bold opacity-75" style="font-size: 0.65rem;">Pág ${i + 1}</span>
+        `;
+        $gridThumbs.appendChild(thumb);
       });
 
-      const diasEnMes = DateUtils.diasDelMes(this._mes, this._ano).length;
+      if (typeof Tesseract === 'undefined') {
+        DomHelpers.mostrarToast('Tesseract.js no disponible. Verifique la conexión a internet.', 'error');
+        $progWrap.classList.add('d-none');
+        return;
+      }
+
+      const totalArchivos = archivosLote.length;
+      const resultadosImgs = [];
 
       try {
-        const { datos, resumenLineas } = await OcrScanner.escanearFotoFormatos(file, filasDisponibles, diasEnMes, prog => {
-          $lblEstado.textContent = prog.msg || 'Procesando...';
-          const pct = Math.round(prog.progress * 100);
-          $pctEstado.textContent = `${pct}%`;
-          $barProgreso.style.width = `${pct}%`;
-        });
+        for (let i = 0; i < totalArchivos; i++) {
+          const file = archivosLote[i];
+          const pctBase = i / totalArchivos;
+          $lblEstado.textContent = `Analizando imagen ${i + 1} de ${totalArchivos} con IA...`;
 
-        datosExtraidosTemporal = datos;
+          let imagenOptimizada = file;
+          if (typeof OcrScanner !== 'undefined' && OcrScanner.preprocesarImagen) {
+            try { imagenOptimizada = await OcrScanner.preprocesarImagen(file); } catch (e) {}
+          }
+
+          const worker = await Tesseract.createWorker('spa+eng', 1, {
+            logger: m => {
+              if (m.status === 'recognizing text') {
+                const subPct = (pctBase + (m.progress / totalArchivos)) * 100;
+                $pctEstado.textContent = `${Math.round(subPct)}%`;
+                $barProgreso.style.width = `${Math.round(subPct)}%`;
+              }
+            }
+          });
+
+          const res = await worker.recognize(imagenOptimizada);
+          await worker.terminate();
+
+          resultadosImgs.push({
+            rawText: res.data.text || '',
+            imagenIndex: i + 1
+          });
+        }
+
+        // Parsear el lote completo con CuadernoParser (manejando herencia de fechas entre fotos consecutivas)
+        registrosDetectados = CuadernoParser.parsearLoteCuadernos(resultadosImgs, DateUtils.getHoy());
+
         $progWrap.classList.add('d-none');
         $resWrap.classList.remove('d-none');
 
-        // ------------------------------------------------------------------
-        // Mostrar el Panel de Confirmación Interactivo de OcrAprendizaje.
-        // En lugar de solo listar lo que se detectó, ahora preguntamos al
-        // usuario si cada etiqueta reconocida es correcta o necesita corrección.
-        // Cada corrección que haga se guarda en localStorage y mejora
-        // el reconocimiento automático en futuros escaneos.
-        // ------------------------------------------------------------------
-        $tbodyRes.innerHTML = '';  // limpiar tabla anterior
-
-        if (typeof OcrAprendizaje !== 'undefined') {
-          // Usar el panel interactivo de aprendizaje
-          const panelConfirmacion = OcrAprendizaje.crearPanelConfirmacion(
-            resumenLineas,
-
-            // Callback: el usuario presionó "Confirmar Todo"
-            (estadoFilas) => {
-              // Reconstruir datosExtraidos respetando los labels corregidos por el usuario
-              // (los números ya vienen bien, solo actualizamos las filaIds si hubo correcciones)
-              if (onAplicarFoto) {
-                onAplicarFoto(datosExtraidosTemporal);
-              }
-              cerrarModal();
-              DomHelpers.mostrarToast('Datos de la foto aplicados al formato.', 'success');
-            },
-
-            // Callback: el usuario corrigió una etiqueta individual
-            ({ filaId, textoAntes, textoDespues }) => {
-              // El aprendizaje ya fue guardado dentro de OcrAprendizaje.crearPanelConfirmacion.
-              // Aquí podríamos hacer acciones adicionales si fuera necesario.
-              console.log(`[Formatos] Correccion registrada: "${textoAntes}" -> "${textoDespues}"`);
-            }
-          );
-
-          if (!resumenLineas.length) {
-            // Si no hay resultados, mostrar mensaje amigable en lugar del panel
-            $tbodyRes.innerHTML = `<p class="text-muted text-center py-2">No se detectaron filas de conteo en la foto. Intente con una imagen más clara.</p>`;
-            // El botón "Aplicar" original funciona normalmente cuando no hay datos
-            $btnAplicar.style.display = '';
-          } else {
-            // Ocultar el botón "Aplicar" original (el panel tiene su propio botón "Confirmar Todo")
-            $btnAplicar.style.display = 'none';
-            $tbodyRes.appendChild(panelConfirmacion);
-          }
-        } else {
-          // Fallback: mostrar tabla simple si OcrAprendizaje no está disponible
-          if (!resumenLineas.length) {
-            $tbodyRes.innerHTML = `<tr><td colspan="2" class="text-muted text-center py-2">No se detectaron filas de conteo en la foto. Intente con una imagen más clara.</td></tr>`;
-          } else {
-            resumenLineas.forEach(linea => {
-              const valsStr = linea.numeros.join(', ');
-              $tbodyRes.appendChild(DomHelpers.crearFila(`
-                <td class="fw-semibold text-teal-dark">${DomHelpers.esc(linea.label)}</td>
-                <td class="small text-muted">${valsStr}</td>
-              `));
-            });
-          }
-        }
+        renderTablaRevision();
 
       } catch (err) {
         $progWrap.classList.add('d-none');
-        DomHelpers.mostrarToast(err.message || 'Error al procesar la imagen.', 'error');
+        DomHelpers.mostrarToast(err.message || 'Error al procesar el lote de imágenes.', 'error');
         resetForm();
       }
     };
 
-    // Botón "Aplicar al Formato" original (solo visible en fallback sin OcrAprendizaje)
-    $btnAplicar.addEventListener('click', () => {
-      if (datosExtraidosTemporal && onAplicarFoto) {
-        onAplicarFoto(datosExtraidosTemporal);
-        cerrarModal();
+    const renderTablaRevision = () => {
+      $tbodyRes.innerHTML = '';
+      if (!registrosDetectados.length) {
+        $tbodyRes.innerHTML = `<tr><td colspan="9" class="text-center py-4 text-muted">No se detectaron filas de atención en las fotos. Verifique que la imagen esté enfocada.</td></tr>`;
+        $lblResumenCount.textContent = '0 atenciones detectadas';
+        return;
       }
-    });
+
+      $lblResumenCount.textContent = `${registrosDetectados.length} atenciones listadas para revisión`;
+
+      const serviciosOpciones = [
+        { key: 'hospitalizacion', label: 'Hospitalización - General' },
+        { key: 'pediatria', label: 'Hospitalización - Pediatría' },
+        { key: 'med_interna', label: 'Hospitalización - Med. Interna' },
+        { key: 'obstetricia', label: 'Hospitalización - Obstetricia' },
+        { key: 'cirugia', label: 'Hospitalización - Cirugía' },
+        { key: 'observacion', label: 'Hospitalización - Observación' },
+        { key: 'cons_especial', label: 'Consulta Especial' },
+        { key: 'cons_externa', label: 'Consulta Externa / Ambulatorio' }
+      ];
+
+      registrosDetectados.forEach((reg, idx) => {
+        const tr = document.createElement('tr');
+        const badgeCat = reg.categoriaServicio === 'Hospitalización' ? 'bg-danger' :
+                         (reg.categoriaServicio === 'Consulta Externa' ? 'bg-info text-dark' : 'bg-primary');
+
+        const optsServ = serviciosOpciones.map(s => `
+          <option value="${s.key}" ${s.key === reg.servicioKey ? 'selected' : ''}>${s.label}</option>
+        `).join('');
+
+        tr.innerHTML = `
+          <td class="text-center fw-bold text-muted" style="width: 45px;">#${reg.imagenIndex}</td>
+          <td style="width: 120px;">
+            <input type="date" class="form-control form-control-sm py-0 input-fecha-rev" data-idx="${idx}" value="${reg.fecha}">
+          </td>
+          <td class="fw-bold text-teal" style="width: 70px;">${DomHelpers.esc(reg.numPaciente)}</td>
+          <td>
+            <div class="fw-semibold text-dark">${DomHelpers.esc(reg.nombrePaciente)}</div>
+            <div class="small text-muted">${DomHelpers.esc(reg.edadPaciente || 'S/E')}</div>
+          </td>
+          <td>
+            <select class="form-select form-select-sm py-0 select-servicio-rev" data-idx="${idx}">
+              ${optsServ}
+            </select>
+            <span class="badge ${badgeCat} mt-1" style="font-size: 0.65rem;">${reg.categoriaServicio}</span>
+          </td>
+          <td>
+            <div class="fw-bold text-teal-dark">${DomHelpers.esc(reg.examenNombre)}</div>
+            <span class="small text-muted">${reg.areaId.toUpperCase()}</span>
+          </td>
+          <td class="text-center fw-bold text-teal">×${reg.multiplicador}</td>
+          <td>
+            ${reg.parasitos && reg.parasitos.length ?
+              `<span class="badge bg-warning text-dark"><i class="bi bi-bug me-1"></i>${reg.parasitos.join(', ')}</span>` :
+              `<span class="text-muted small">${DomHelpers.esc(reg.resultadoTexto || 'Normal')}</span>`}
+          </td>
+          <td class="text-end">
+            <button type="button" class="btn btn-xs btn-outline-danger btn-del-rev py-0 px-2" data-idx="${idx}" title="Eliminar atención">
+              <i class="bi bi-trash"></i>
+            </button>
+          </td>
+        `;
+        $tbodyRes.appendChild(tr);
+      });
+
+      // Bindings de la tabla interactiva de revisión
+      $tbodyRes.querySelectorAll('.input-fecha-rev').forEach(inp => {
+        inp.addEventListener('change', (e) => {
+          const idx = parseInt(e.target.dataset.idx, 10);
+          if (registrosDetectados[idx]) registrosDetectados[idx].fecha = e.target.value;
+        });
+      });
+
+      $tbodyRes.querySelectorAll('.select-servicio-rev').forEach(sel => {
+        sel.addEventListener('change', (e) => {
+          const idx = parseInt(e.target.dataset.idx, 10);
+          const selOpt = sel.options[sel.selectedIndex];
+          if (registrosDetectados[idx]) {
+            registrosDetectados[idx].servicioKey = sel.value;
+            registrosDetectados[idx].servicioNombre = selOpt.text;
+            if (sel.value === 'cons_externa') registrosDetectados[idx].categoriaServicio = 'Consulta Externa';
+            else if (sel.value === 'cons_especial') registrosDetectados[idx].categoriaServicio = 'Consulta Especial';
+            else registrosDetectados[idx].categoriaServicio = 'Hospitalización';
+          }
+        });
+      });
+
+      $tbodyRes.querySelectorAll('.btn-del-rev').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const idx = parseInt(e.currentTarget.dataset.idx, 10);
+          registrosDetectados.splice(idx, 1);
+          renderTablaRevision();
+        });
+      });
+    };
+
+    // Botón "Guardar Atenciones en el Sistema (Local)"
+    if ($btnAplicar) {
+      $btnAplicar.addEventListener('click', () => {
+        if (!registrosDetectados.length) {
+          DomHelpers.mostrarToast('No hay atenciones para guardar.', 'error');
+          return;
+        }
+
+        // Agrupar las atenciones revisadas por (fecha, servicioKey, examenKey)
+        const atencionesAgrupadas = CuadernoParser.agruparAtencionesParaInsercion(registrosDetectados);
+
+        if (onAplicarFoto) {
+          onAplicarFoto(atencionesAgrupadas);
+        }
+
+        cerrarModal();
+        DomHelpers.mostrarToast(`¡${registrosDetectados.length} atenciones guardadas exitosamente en LocalStorage! Recuerde hacer clic en "Guardar en Base de Datos" cuando desee sincronizar a la Nube.`, 'success');
+      });
+    }
   }
 
   /** Muestra el estado de "Sin área seleccionada" */
@@ -1151,3 +1263,4 @@ class FormatosView {
       </div>`;
   }
 }
+

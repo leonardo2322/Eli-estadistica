@@ -681,48 +681,53 @@
     </div>
   </div>
 
-  <!-- Modal Escáner de Foto e Inteligencia Artificial (OCR) -->
+  <!-- Modal Escáner de Cuadernos de Bioanálisis (IA) -->
   <div id="modal-escaner-foto" class="export-overlay d-none" style="z-index: 1065;">
-    <div class="card form-card shadow-lg" style="max-width: 720px; width: 90%; max-height: 90vh; overflow-y: auto;">
+    <div class="card form-card shadow-lg" style="max-width: 900px; width: 95%; max-height: 92vh; overflow-y: auto;">
       <div class="card-header bg-teal text-white py-3 d-flex align-items-center justify-content-between">
-        <h5 class="mb-0 text-white"><i class="bi bi-camera-fill me-2"></i>Escanear Foto / Planilla (IA)</h5>
+        <h5 class="mb-0 text-white"><i class="bi bi-journal-check me-2"></i>Escáner de Cuadernos de Bioanálisis (IA)</h5>
         <button id="btn-cerrar-escaner" class="btn-close btn-close-white"></button>
       </div>
-      <div class="card-body p-4">
-        <p class="text-muted small mb-3">Suba una imagen o tome una foto de la planilla. La Inteligencia Artificial analizará el texto e inyectará los conteos automáticamente en el formato actual.</p>
+      <div class="card-body p-3 p-md-4">
+        <p class="text-muted small mb-3">
+          Suba una o varias fotos del cuaderno de registro de bioanálisis. El sistema clasificará automáticamente los servicios por número de paciente o abreviaturas (Hospitalización vs Consulta Especial vs Consulta Externa), aplicará los multiplicadores por área (Hematología ×5, Orina ×6, Heces ×2, Serología ×1) y mantendrá la fecha entre páginas consecutivas.
+        </p>
 
-        <!-- Dropzone / Selección de archivo de imagen -->
+        <!-- Dropzone / Selección de Lote de Imágenes -->
         <div id="escaner-dropzone" class="border border-2 border-dashed rounded-3 p-4 text-center mb-3 style-dropzone" style="cursor: pointer; background-color: #f8fafc; border-color: #cbd5e1 !important;">
-          <div class="mb-2" style="font-size: 2.2rem;">📷 🖼️</div>
-          <p class="fw-bold mb-1 text-teal-dark">Arrastre la foto aquí o elija una opción:</p>
+          <div class="mb-2" style="font-size: 2.2rem;">📷 📖 🖼️</div>
+          <p class="fw-bold mb-1 text-teal-dark">Arrastre las fotos del cuaderno aquí o elija una opción:</p>
           <div class="d-flex justify-content-center gap-2 mt-3 flex-wrap">
             <button type="button" id="btn-escaner-camara" class="btn btn-teal-action btn-sm px-3">
               <i class="bi bi-camera-fill me-1"></i>Tomar Foto (Cámara)
             </button>
             <button type="button" id="btn-escaner-galeria" class="btn btn-outline-teal btn-sm px-3">
-              <i class="bi bi-images me-1"></i>Buscar en Galería
+              <i class="bi bi-images me-1"></i>Seleccionar Lote de Fotos (Galería)
             </button>
           </div>
-          <p class="text-muted small mt-2 mb-0">Soporta JPG, PNG, WEBP de celular o computadora</p>
+          <p class="text-muted small mt-2 mb-0">Puede seleccionar varias imágenes a la vez. Se procesarán secuencialmente manteniendo la fecha.</p>
           <input type="file" id="inp-foto-camara" accept="image/*" capture="environment" class="d-none">
-          <input type="file" id="inp-foto-galeria" accept="image/*" class="d-none">
-          <input type="file" id="inp-foto-planilla" accept="image/*" class="d-none">
+          <input type="file" id="inp-foto-galeria" accept="image/*" multiple class="d-none">
+          <input type="file" id="inp-foto-planilla" accept="image/*" multiple class="d-none">
         </div>
 
-        <!-- Vista previa de la foto cargada -->
-        <div id="contenedor-preview-foto" class="d-none text-center mb-3">
-          <img id="img-preview-foto" class="img-fluid rounded-3 border shadow-sm style-img-preview" style="max-height: 220px; object-fit: contain;">
-          <div class="mt-2">
+        <!-- Vista previa del lote de fotos cargadas -->
+        <div id="contenedor-preview-foto" class="d-none mb-3">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <span class="fw-bold text-teal small" id="lbl-lote-count"><i class="bi bi-images me-1"></i>Imágenes en este lote (0)</span>
             <button id="btn-reemplazar-foto" class="btn btn-sm btn-outline-secondary">
-              <i class="bi bi-arrow-repeat me-1"></i>Cambiar Foto
+              <i class="bi bi-trash me-1"></i>Limpiar Lote y Volver a Subir
             </button>
+          </div>
+          <div id="grid-lote-thumbnails" class="d-flex gap-2 overflow-x-auto pb-2">
+            <!-- Thumbnails inyectados dinámicamente -->
           </div>
         </div>
 
         <!-- Estado / Barra de Progreso de IA -->
         <div id="contenedor-progreso-ocr" class="d-none mb-3">
           <div class="d-flex justify-content-between align-items-center mb-1">
-            <span id="lbl-estado-ocr" class="fw-semibold text-teal small">Analizando foto con IA...</span>
+            <span id="lbl-estado-ocr" class="fw-semibold text-teal small">Analizando fotos del cuaderno con IA...</span>
             <span id="pct-estado-ocr" class="badge bg-teal">0%</span>
           </div>
           <div class="progress" style="height: 10px;">
@@ -730,22 +735,50 @@
           </div>
         </div>
 
-        <!-- Tabla de Vista Previa de Datos Detectados por la IA -->
+        <!-- Tabla Interactiva de Previsualización y Revisión de Atenciones Detectadas -->
         <div id="contenedor-resultados-ocr" class="d-none">
-          <h6 class="fw-bold text-teal-dark mb-2"><i class="bi bi-check2-circle me-1"></i>Datos Detectados por la IA:</h6>
-          <div class="table-responsive border rounded-3 mb-3" style="max-height: 200px;">
-            <table class="table table-sm table-hover align-middle mb-0">
-              <thead class="table-light">
-                <tr><th>Fila / Examen</th><th>Conteos Detectados</th></tr>
+          <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+            <h6 class="fw-bold text-teal-dark mb-0"><i class="bi bi-check2-square me-1"></i>Atenciones Detectadas (Revisión Visual Previa):</h6>
+            <div class="d-flex gap-2 align-items-center">
+              <button type="button" id="btn-aprender-centro" class="btn btn-xs btn-outline-teal py-1 px-2 small" title="Enseñar al sistema el nombre de un nuevo ambulario o centro de consulta externa (ej: CEMCA, ROA)">
+                <i class="bi bi-plus-circle me-1"></i>+ Aprender Centro Externo
+              </button>
+            </div>
+          </div>
+
+          <div class="table-responsive border rounded-3 mb-3" style="max-height: 320px;">
+            <table class="table table-sm table-hover align-middle mb-0" style="font-size: 0.88rem;">
+              <thead class="table-light sticky-top">
+                <tr>
+                  <th>Pág</th>
+                  <th>Fecha</th>
+                  <th>Pac. #</th>
+                  <th>Nombre &amp; Edad</th>
+                  <th>Servicio Clasificado</th>
+                  <th>Examen &amp; Área</th>
+                  <th class="text-center">Mult.</th>
+                  <th>Parásitos / Detalles</th>
+                  <th class="text-end">Acción</th>
+                </tr>
               </thead>
               <tbody id="tbody-resultados-ocr"></tbody>
             </table>
           </div>
 
-          <div class="d-flex gap-2">
-            <button id="btn-aplicar-foto-formato" class="btn btn-teal-action flex-grow-1 py-2">
-              <i class="bi bi-file-earmark-arrow-down-fill me-1"></i>Aplicar al Formato Actual
-            </button>
+          <!-- Pie del panel modal con resumen e inyección a LocalStorage -->
+          <div class="p-3 bg-light rounded border d-flex justify-content-between align-items-center flex-wrap gap-3">
+            <div>
+              <span class="fw-bold text-teal-dark" id="lbl-resumen-atenciones-count">0 atenciones listadas</span>
+              <p class="text-muted small mb-0">Se guardarán en el almacenamiento local y actualizarán los formatos del mes.</p>
+            </div>
+            <div class="d-flex gap-2">
+              <button type="button" id="btn-cancelar-atenciones" class="btn btn-sm btn-outline-secondary px-3">
+                Cancelar
+              </button>
+              <button id="btn-aplicar-foto-formato" class="btn btn-teal-action py-2 px-4 shadow-sm">
+                <i class="bi bi-box-arrow-in-down me-1"></i>💾 Guardar Atenciones en el Sistema (Local)
+              </button>
+            </div>
           </div>
         </div>
 
@@ -775,6 +808,7 @@
   <script src="js/utils/csv-export.js"></script>
   <script src="js/utils/ocr-scanner.js"></script>
   <script src="js/utils/ocr-aprendizaje.js"></script>
+  <script src="js/utils/cuaderno-parser.js"></script>
 
   <!-- 3. Repositorios -->
   <script src="js/repository/bioanalisis-repo.js"></script>

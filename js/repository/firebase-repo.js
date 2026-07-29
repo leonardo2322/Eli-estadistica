@@ -319,5 +319,42 @@ class FirebaseRepository {
       return { ok: false, count: 0 };
     }
   }
+
+  /**
+   * Guarda la lista de centros/ambulatorios externos aprendidos en Cloud Firestore.
+   * @param {Array<string>} listaCentros 
+   * @returns {Promise<boolean>}
+   */
+  async guardarCentrosExternos(listaCentros) {
+    if (!db || !Array.isArray(listaCentros)) return false;
+    try {
+      await db.collection('configuracion').doc('centros_externos').set({
+        lista: listaCentros,
+        actualizadoEn: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+      return true;
+    } catch (error) {
+      console.error('Error al guardar centros externos en Firestore:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Obtiene la lista de centros/ambulatorios externos aprendidos desde Cloud Firestore.
+   * @returns {Promise<Array<string>>}
+   */
+  async obtenerCentrosExternos() {
+    if (!db) return [];
+    try {
+      const doc = await db.collection('configuracion').doc('centros_externos').get();
+      if (doc.exists && doc.data() && Array.isArray(doc.data().lista)) {
+        return doc.data().lista;
+      }
+      return [];
+    } catch (error) {
+      console.error('Error al obtener centros externos de Firestore:', error);
+      return [];
+    }
+  }
 }
 
