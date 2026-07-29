@@ -458,6 +458,12 @@ class CuadernoParser {
         nombrePaciente = nombrePaciente.replace(/\[?esopo?\]?|\bnsop\b|\bhto\b|\bhb\b|\bvdrl\b|\bhcg\b/gi, '').trim();
         if (!nombrePaciente || nombrePaciente.length < 2) {
           nombrePaciente = `Paciente #${numPaciente}`;
+        } else if (typeof FuzzyMatcher !== 'undefined') {
+          nombrePaciente = FuzzyMatcher.corregirNombrePaciente(nombrePaciente);
+        }
+
+        if (centroExternoDetectado && typeof FuzzyMatcher !== 'undefined') {
+          centroExternoDetectado = FuzzyMatcher.corregirCentroExterno(centroExternoDetectado).toUpperCase();
         }
 
         // Inferir examen y multiplicador

@@ -1164,6 +1164,50 @@ class FormatosView {
       });
     }
 
+    // Visor Interactivo Lado a Lado (Foto vs Tabla)
+    const $btnToggleVisor = document.getElementById('btn-toggle-visor-lado-a-lado');
+    const $colVisorFoto = document.getElementById('col-visor-foto-split');
+    const $colTablaResultados = document.getElementById('col-tabla-resultados-split');
+    const $imgVisorSplit = document.getElementById('img-visor-split');
+    const $btnZoomIn = document.getElementById('btn-zoom-in-foto');
+    const $btnZoomOut = document.getElementById('btn-zoom-out-foto');
+    let zoomLevel = 1.0;
+
+    if ($btnToggleVisor && $colVisorFoto && $colTablaResultados) {
+      $btnToggleVisor.addEventListener('click', () => {
+        const estaOculto = $colVisorFoto.classList.contains('d-none');
+        if (estaOculto) {
+          $colVisorFoto.classList.remove('d-none');
+          $colTablaResultados.className = 'col-md-7';
+          $btnToggleVisor.innerHTML = '<i class="bi bi-layout-sidebar-reverse me-1"></i>Ocultar Foto Lado a Lado';
+          $btnToggleVisor.classList.replace('btn-outline-primary', 'btn-primary');
+
+          if (archivosLote.length > 0 && $imgVisorSplit) {
+            $imgVisorSplit.src = URL.createObjectURL(archivosLote[0]);
+          }
+        } else {
+          $colVisorFoto.classList.add('d-none');
+          $colTablaResultados.className = 'col-md-12';
+          $btnToggleVisor.innerHTML = '<i class="bi bi-layout-split me-1"></i>👁️ Ver Foto Lado a Lado';
+          $btnToggleVisor.classList.replace('btn-primary', 'btn-outline-primary');
+        }
+      });
+    }
+
+    if ($btnZoomIn && $imgVisorSplit) {
+      $btnZoomIn.addEventListener('click', () => {
+        zoomLevel = Math.min(2.5, zoomLevel + 0.25);
+        $imgVisorSplit.style.transform = `scale(${zoomLevel})`;
+      });
+    }
+
+    if ($btnZoomOut && $imgVisorSplit) {
+      $btnZoomOut.addEventListener('click', () => {
+        zoomLevel = Math.max(0.75, zoomLevel - 0.25);
+        $imgVisorSplit.style.transform = `scale(${zoomLevel})`;
+      });
+    }
+
     const procesarArchivosLote = async (files) => {
       archivosLote = files;
       if (!archivosLote.length) return;

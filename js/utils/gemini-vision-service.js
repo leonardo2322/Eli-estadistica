@@ -88,8 +88,7 @@ class GeminiVisionService {
 
     const modelosNombres = [
       'gemini-1.5-flash',
-      'gemini-2.0-flash',
-      'gemini-1.5-pro'
+      'gemini-2.0-flash'
     ];
 
     const atencionesTotales = [];
@@ -151,7 +150,8 @@ Responde ÚNICAMENTE con el objeto JSON válido sin texto explicativo.
       let response = null;
       let ultimoError = null;
 
-      // Probar los modelos y métodos oficiales de Google AI Studio (NUNCA usar Authorization: Bearer)
+      // URL estándar recomendada por Google AI Studio:
+      // https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=TU_API_KEY
       for (const modNombre of modelosNombres) {
         const endpointsToTry = [
           {
