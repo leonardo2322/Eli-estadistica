@@ -994,7 +994,77 @@ class FormatosView {
       resetForm();
     };
 
+    let mediaStreamLive = null;
+
+    const abrirCamaraLive = async () => {
+      // Intentar primero con la API nativa de cámara en vivo HTML5 (WebRTC)
+      if (navigator.mediaDevices && typeof navigator.mediaDevices.getUserMedia === 'function') {
+        try {
+          const constraints = {
+            video: {
+              facingMode: { ideal: 'environment' },
+              width: { ideal: 1920 },
+              height: { ideal: 1080 }
+            }
+          };
+          mediaStreamLive = await navigator.mediaDevices.getUserMedia(constraints);
+          const $video = document.getElementById('video-camara-live');
+          const $wrapLive = document.getElementById('contenedor-camara-live');
+          if ($video && $wrapLive) {
+            $video.srcObject = mediaStreamLive;
+            $wrapLive.classList.remove('d-none');
+            if ($dropzone) $dropzone.classList.add('d-none');
+            return;
+          }
+        } catch (err) {
+          console.warn('Cámara en vivo no disponible o sin permiso, usando fallback de captura:', err);
+        }
+      }
+
+      // Fallback si WebRTC no es soportado o si fue denegado el permiso directo
+      if ($inpCamara) {
+        $inpCamara.value = '';
+        $inpCamara.click();
+      }
+    };
+
+    const detenerCamaraLive = () => {
+      if (mediaStreamLive) {
+        mediaStreamLive.getTracks().forEach(track => track.stop());
+        mediaStreamLive = null;
+      }
+      const $wrapLive = document.getElementById('contenedor-camara-live');
+      if ($wrapLive) $wrapLive.classList.add('d-none');
+      if ($dropzone && !archivosLote.length) $dropzone.classList.remove('d-none');
+    };
+
+    const capturarSnapLive = () => {
+      const $video = document.getElementById('video-camara-live');
+      const $canvas = document.getElementById('canvas-camara-snap');
+      if (!$video || !$canvas) return;
+
+      $canvas.width = $video.videoWidth || 1280;
+      $canvas.height = $video.videoHeight || 720;
+      const ctx = $canvas.getContext('2d');
+      ctx.drawImage($video, 0, 0, $canvas.width, $canvas.height);
+
+      $canvas.toBlob((blob) => {
+        if (blob) {
+          const file = new File([blob], `cuaderno-foto-${Date.now()}.jpg`, { type: 'image/jpeg' });
+          detenerCamaraLive();
+          procesarArchivosLote([...archivosLote, file]);
+        }
+      }, 'image/jpeg', 0.92);
+    };
+
+    const $btnSnapLive   = document.getElementById('btn-capturar-snap');
+    const $btnCerrarLive = document.getElementById('btn-cerrar-camara-live');
+
+    if ($btnSnapLive) $btnSnapLive.addEventListener('click', capturarSnapLive);
+    if ($btnCerrarLive) $btnCerrarLive.addEventListener('click', detenerCamaraLive);
+
     const resetForm = () => {
+      detenerCamaraLive();
       archivosLote = [];
       registrosDetectados = [];
       if ($inpFoto) $inpFoto.value = '';
@@ -1034,11 +1104,10 @@ class FormatosView {
       });
     }
 
-    if ($btnCamara && $inpCamara) {
+    if ($btnCamara) {
       $btnCamara.addEventListener('click', (e) => {
         e.stopPropagation();
-        $inpCamara.value = '';
-        $inpCamara.click();
+        abrirCamaraLive();
       });
     }
     if ($btnGaleria && $inpGaleria) {

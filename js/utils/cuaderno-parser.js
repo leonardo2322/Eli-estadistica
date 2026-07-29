@@ -383,50 +383,81 @@ class CuadernoParser {
       } else if (imgObj.fechaManual) {
         fechaActiva = imgObj.fechaManual;
       }
-      // Si no se encuentra fecha en esta imagen, hereda fechaActiva de la página anterior del lote.
+      const centrosExternos = this.obtenerCentrosExternos();
 
       lineas.forEach(linea => {
         // Ignorar líneas de encabezado de fecha o títulos generales
         if (this.extraerFecha(linea) || /lic\s*yosmar|asist\s|cuaderno|fecha/i.test(linea)) return;
 
-        // Intentar estructurar la fila: [Número] [Nombre] [Edad] [Servicio] [Examen/Resultado]
-        const regexFila = /^(?:p\.?n\s*)?([a-zA-Z0-9]+)\s+([a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+?)\s+(\d+\s*(?:años|a\b)?)\s+([a-zA-Z0-9\/\s]+?)(?:\s+(.*))?$/i;
-        const match = linea.match(regexFila);
+        let text = linea.replace(/^[\s\|\-\*\.\[\]]+/, '').trim();
+        if (!text) return;
 
-        let numPaciente    = '';
-        let nombrePaciente = '';
-        let edadPaciente   = '';
-        let textoServicio  = '';
-        let textoResultado = '';
-        let rawNombre      = '';
-        let rawEdad        = '';
-
-        if (match) {
-          numPaciente     = match[1];
-          rawNombre       = match[2].trim();
-          rawEdad         = match[3].trim();
-          textoServicio   = match[4].trim();
-          textoResultado  = (match[5] || '').trim();
-        } else {
-          // Heurística flexible para líneas no estructuradas estrictamente
-          const numeros = linea.match(/\b[a-zA-Z0-9]{1,4}\b/g) || [];
-          if (!numeros.length) return;
-          numPaciente = numeros[0];
-          rawNombre = linea.replace(numPaciente, '').trim();
-          textoServicio = rawNombre;
+        // 1. Extraer N° de Paciente o Cama al inicio
+        let numPaciente = '1';
+        const matchNum = text.match(/^(?:p\.?n\s*)?([a-zA-Z0-9]{1,5})\b/i);
+        if (matchNum) {
+          numPaciente = matchNum[1];
+          text = text.substring(matchNum[0].length).trim();
         }
 
-        const nombreLimpioObj = this.limpiarNombreEdadOcr(rawNombre);
-        const edadLimpiaObj   = this.limpiarNombreEdadOcr(rawEdad);
-        const dudaLectura     = nombreLimpioObj.dudaLectura || edadLimpiaObj.dudaLectura || /\[?esopo?\]?/i.test(linea);
+        // 2. Extraer Edad (ej: 31a, 31a., 31 años, 25a, 25a.)
+        let edadPaciente = 'S/E';
+        let nombrePaciente = '';
+        let restoTexto = text;
 
-        nombrePaciente = nombreLimpioObj.textoLimpio || `Paciente #${numPaciente}`;
-        edadPaciente   = edadLimpiaObj.textoLimpio !== 'S/E' ? edadLimpiaObj.textoLimpio : (rawEdad || 'S/E');
+        const regexEdadFuerte = /\b(\d{1,3}\s*(?:años|a\b\.?))\b/i;
+        const matchFuerte = text.match(regexEdadFuerte);
 
-        // Clasificar servicio y multiplicador de examen
-        const servicioInfo = this.clasificarServicio(numPaciente, textoServicio);
-        const examenInfo   = this.inferirExamenYMultiplicador(textoServicio, textoResultado);
-        const parasitos    = examenInfo.areaId === 'coproanalisis' ? this.extraerParasitos(textoResultado) : [];
+        if (matchFuerte) {
+          const idxEdad = text.indexOf(matchFuerte[0]);
+          nombrePaciente = text.substring(0, idxEdad).trim();
+          edadPaciente = matchFuerte[0].replace(/\.$/, '').trim();
+          restoTexto = text.substring(idxEdad + matchFuerte[0].length).trim();
+        } else {
+          // Si no tiene edad explícita, el nombre inicial abarca hasta encontrar el servicio/centro
+          nombrePaciente = text;
+        }
+
+        // 3. Buscar centros externos (PBA, IPAS, CEMCA, ROA, Guaraque, Amparo, Río Negro, etc.)
+        let centroExternoDetectado = '';
+        let servicioKey = 'cons_especial';
+        let servicioNombre = 'Consulta Especial';
+        let categoriaServicio = 'Consulta Especial';
+
+        const textNormResto = (restoTexto || text).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        const centroFound = centrosExternos.find(c => textNormResto.includes(c));
+
+        if (centroFound) {
+          centroExternoDetectado = centroFound.toUpperCase();
+          servicioKey = 'cons_externa';
+          servicioNombre = 'Consulta Externa';
+          categoriaServicio = 'Consulta Externa';
+          if (!matchFuerte) {
+            const idxCentro = nombrePaciente.toLowerCase().indexOf(centroFound);
+            if (idxCentro > 0) {
+              nombrePaciente = nombrePaciente.substring(0, idxCentro).trim();
+            }
+          }
+        } else {
+          // Clasificar por reglas del servicio o número de cama de hospitalización
+          const srvClas = this.clasificarServicio(numPaciente, restoTexto || text);
+          servicioKey = srvClas.servicioKey;
+          servicioNombre = srvClas.servicioNombre;
+          categoriaServicio = srvClas.Categoria;
+          if (srvClas.centroExternoDetectado) {
+            centroExternoDetectado = srvClas.centroExternoDetectado;
+          }
+        }
+
+        // Limpiar el nombre del paciente de palabras clave sobrantes
+        nombrePaciente = nombrePaciente.replace(/\[?esopo?\]?|\bnsop\b|\bhto\b|\bhb\b|\bvdrl\b|\bhcg\b/gi, '').trim();
+        if (!nombrePaciente || nombrePaciente.length < 2) {
+          nombrePaciente = `Paciente #${numPaciente}`;
+        }
+
+        // Inferir examen y multiplicador
+        const examenInfo = this.inferirExamenYMultiplicador(restoTexto || text, linea);
+        const parasitos  = examenInfo.areaId === 'coproanalisis' ? this.extraerParasitos(linea) : [];
 
         registrosExtraidos.push({
           idTemp:          `rec-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
@@ -435,18 +466,18 @@ class CuadernoParser {
           numPaciente,
           nombrePaciente,
           edadPaciente,
-          servicioTextoOriginal: textoServicio,
-          servicioKey:     servicioInfo.servicioKey,
-          servicioNombre:  servicioInfo.servicioNombre,
-          categoriaServicio: servicioInfo.Categoria,
-          centroExternoDetectado: servicioInfo.centroExternoDetectado || '',
+          servicioTextoOriginal: restoTexto || text,
+          servicioKey,
+          servicioNombre,
+          categoriaServicio,
+          centroExternoDetectado,
           examenNombre:    examenInfo.examenNombre,
           examenKey:       examenInfo.examenKey,
           areaId:          examenInfo.areaId,
           multiplicador:   examenInfo.multiplicador,
-          resultadoTexto:  textoResultado,
+          resultadoTexto:  linea,
           parasitos:       parasitos,
-          dudaLectura:     dudaLectura,
+          dudaLectura:     true, // Mostrar siempre el aviso visual de confirmación "¿Estoy leyendo bien este campo?"
           lineaOriginal:   linea
         });
       });

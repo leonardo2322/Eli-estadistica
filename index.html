@@ -693,6 +693,22 @@
           Suba una o varias fotos del cuaderno de registro de bioanálisis. El sistema clasificará automáticamente los servicios por número de paciente o abreviaturas (Hospitalización vs Consulta Especial vs Consulta Externa), aplicará los multiplicadores por área (Hematología ×5, Orina ×6, Heces ×2, Serología ×1) y mantendrá la fecha entre páginas consecutivas.
         </p>
 
+        <!-- Visor de Cámara en Vivo (HTML5 Video Stream WebRTC) -->
+        <div id="contenedor-camara-live" class="d-none text-center mb-3 p-3 border rounded-3 bg-dark text-white">
+          <div class="position-relative d-inline-block w-100" style="max-width: 500px;">
+            <video id="video-camara-live" autoplay playsinline class="w-100 rounded border border-light shadow" style="max-height: 350px; object-fit: cover;"></video>
+            <canvas id="canvas-camara-snap" class="d-none"></canvas>
+          </div>
+          <div class="d-flex justify-content-center gap-2 mt-3">
+            <button type="button" id="btn-capturar-snap" class="btn btn-warning fw-bold px-4 py-2 rounded-pill shadow">
+              <i class="bi bi-camera-fill me-1"></i> 📸 Capturar Foto del Cuaderno
+            </button>
+            <button type="button" id="btn-cerrar-camara-live" class="btn btn-outline-light px-3">
+              <i class="bi bi-x-circle me-1"></i> Cancelar Cámara
+            </button>
+          </div>
+        </div>
+
         <!-- Dropzone / Selección de Lote de Imágenes -->
         <div id="escaner-dropzone" class="border border-2 border-dashed rounded-3 p-4 text-center mb-3 style-dropzone" style="cursor: pointer; background-color: #f8fafc; border-color: #cbd5e1 !important;">
           <div class="mb-2" style="font-size: 2.2rem;">📷 📖 🖼️</div>
