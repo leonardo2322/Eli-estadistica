@@ -87,11 +87,9 @@ class GeminiVisionService {
     }
 
     const modelosNombres = [
-      'gemini-1.5-flash-latest',
       'gemini-1.5-flash',
-      'gemini-2.0-flash-exp',
-      'gemini-2.5-flash',
-      'gemini-1.5-pro-latest'
+      'gemini-2.0-flash',
+      'gemini-1.5-pro'
     ];
 
     const atencionesTotales = [];
@@ -153,12 +151,20 @@ Responde ÚNICAMENTE con el objeto JSON válido sin texto explicativo.
       let response = null;
       let ultimoError = null;
 
-      // Probar los modelos y métodos de autenticación disponibles secuencialmente
+      // Probar los modelos y métodos oficiales de Google AI Studio (NUNCA usar Authorization: Bearer)
       for (const modNombre of modelosNombres) {
         const endpointsToTry = [
-          { url: `https://generativelanguage.googleapis.com/v1beta/models/${modNombre}:generateContent?key=${key}`, headers: { 'Content-Type': 'application/json' } },
-          { url: `https://generativelanguage.googleapis.com/v1beta/models/${modNombre}:generateContent`, headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key } },
-          { url: `https://generativelanguage.googleapis.com/v1beta/models/${modNombre}:generateContent`, headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` } }
+          {
+            url: `https://generativelanguage.googleapis.com/v1beta/models/${modNombre}:generateContent?key=${encodeURIComponent(key)}`,
+            headers: { 'Content-Type': 'application/json' }
+          },
+          {
+            url: `https://generativelanguage.googleapis.com/v1beta/models/${modNombre}:generateContent`,
+            headers: {
+              'Content-Type': 'application/json',
+              'x-goog-api-key': key
+            }
+          }
         ];
 
         for (const ep of endpointsToTry) {
