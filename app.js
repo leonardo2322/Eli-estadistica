@@ -65,23 +65,28 @@ document.addEventListener('DOMContentLoaded', () => {
       GeminiVisionService.verificarModeloActual().then(resultado => {
         if (!resultado) return; // sin key o sin red → ignorar silenciosamente
         if (!resultado.disponible) {
+          // Ninguno de los MODELOS_CANDIDATOS está disponible para esta key
           const flashDisponibles = resultado.modelos
             .filter(n => n.includes('flash'))
-            .join(', ') || 'Ver consola para lista completa';
+            .slice(0, 5)                          // limitar para no saturar el toast
+            .join(', ') || 'Ver consola';
           // Retardo breve para que el toast aparezca después del render inicial
           setTimeout(() => {
             DomHelpers.mostrarToast(
-              `⚠️ Modelo Gemini "${resultado.modeloActual}" retirado. ` +
-              `Actualice gemini-vision-service.js. Modelos flash activos: ${flashDisponibles}`,
+              `⚠️ Ningún modelo Gemini candidato disponible para tu API key. ` +
+              `Edita MODELOS_CANDIDATOS en gemini-vision-service.js. Flash activos: ${flashDisponibles}`,
               'error'
             );
           }, 1500);
           console.warn(
-            `[GeminiVisionService] MODELO RETIRADO: "${resultado.modeloActual}" no está disponible.\n` +
-            `Modelos disponibles:\n  · ${resultado.modelos.join('\n  · ')}`
+            `[GeminiVisionService] ⚠️ TODOS LOS MODELOS CANDIDATOS NO DISPONIBLES.\n` +
+            `Candidatos intentados: ${GeminiVisionService.MODELOS_CANDIDATOS.join(', ')}\n` +
+            `Modelos flash activos en la API:\n  · ${resultado.modelos.filter(n => n.includes('flash')).join('\n  · ')}`
           );
         } else {
-          console.info(`[GeminiVisionService] ✅ Modelo "${resultado.modeloActual}" verificado y disponible.`);
+          console.info(
+            `[GeminiVisionService] ✅ Modelos candidatos verificados. Activo preferido: "${resultado.modeloActual}"`
+          );
         }
       });
     }

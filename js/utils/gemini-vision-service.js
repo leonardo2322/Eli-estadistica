@@ -13,6 +13,21 @@ class GeminiVisionService {
   static STORAGE_KEY = 'eli_gemini_api_key';
 
   /**
+   * Modelos candidatos en orden de preferencia.
+   * Se prueban en cascada: el primero que responda con éxito se usa y se cachea.
+   * Solo se avanza al siguiente si el error es 404 (modelo no encontrado/retirado).
+   * Para agregar o cambiar modelos en el futuro, edita SOLO este array.
+   */
+  static MODELOS_CANDIDATOS = [
+    'gemini-2.5-flash-lite',      // más disponible para API keys nuevas
+    'gemini-2.5-flash',           // versión completa (puede estar restringida)
+    'gemini-2.0-flash',           // respaldo generación anterior
+  ];
+
+  /** Clave localStorage donde se guarda el último modelo que funcionó. */
+  static STORAGE_MODELO_ACTIVO = 'gemini_modelo_activo';
+
+  /**
    * Obtiene la API Key de Gemini guardada en LocalStorage.
    * @returns {string}
    */
@@ -116,15 +131,14 @@ REGLAS DE SERVICIO:
 Responde ÚNICAMENTE con el objeto JSON válido sin texto explicativo.
 `;
 
-    // Alias estable del modelo flash activo (gemini-2.5-flash, vigente hasta oct 2026).
-    // Se elimina cualquier prefijo "models/" para evitar duplicar el segmento en la URL.
-    const modeloNombre = 'gemini-2.5-flash'.replace(/^models\//, '');
-
-    // Lista de endpoints a probar (v1beta primero — necesario para modelos 2.x; v1 como respaldo)
-    const endpointsToTry = [
-      `https://generativelanguage.googleapis.com/v1beta/models/${modeloNombre}:generateContent?key=${encodeURIComponent(key)}`,
-      `https://generativelanguage.googleapis.com/v1/models/${modeloNombre}:generateContent?key=${encodeURIComponent(key)}`
-    ];
+    // ── Selección de modelo con caché ────────────────────────────────────
+    // Se lee el último modelo que funcionó; si falla con 404, se prueba la cascada completa.
+    const modeloCacheado = (localStorage.getItem(this.STORAGE_MODELO_ACTIVO) || '').trim();
+    // Construye la lista: modelo cacheado primero (si existe y está en candidatos),
+    // seguido de los demás candidatos que aún no se han probado.
+    const candidatosOrdenados = modeloCacheado && this.MODELOS_CANDIDATOS.includes(modeloCacheado)
+      ? [modeloCacheado, ...this.MODELOS_CANDIDATOS.filter(m => m !== modeloCacheado)]
+      : [...this.MODELOS_CANDIDATOS];
 
     for (let i = 0; i < archivos.length; i++) {
       const file = archivos[i];
@@ -134,8 +148,6 @@ Responde ÚNICAMENTE con el objeto JSON válido sin texto explicativo.
         if (onProgress) onProgress(i + 1, archivos.length, `Esperando 4s para respetar límite de cuota (Rate Limit)...`);
         await new Promise(resolve => setTimeout(resolve, 4000));
       }
-
-      if (onProgress) onProgress(i + 1, archivos.length, `Enviando imagen ${i + 1} a Google Gemini Flash...`);
 
       const base64Data = await this.fileToBase64(file);
 
@@ -159,37 +171,84 @@ Responde ÚNICAMENTE con el objeto JSON válido sin texto explicativo.
         }
       };
 
-      let response = null;
-      let ultimoError = null;
+      // ── Cascada de modelos ────────────────────────────────────────────
+      let response       = null;
+      let ultimoError    = null;
+      let modeloUsado    = null;
 
-      for (const endpointUrl of endpointsToTry) {
-        try {
-          const resAttempt = await fetch(endpointUrl, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'x-goog-api-key': key
-            },
-            body: JSON.stringify(requestBody)
-          });
+      for (const candidato of candidatosOrdenados) {
+        const modelo = candidato.replace(/^models\//, '');
+        // v1beta primero (necesario para modelos 2.x+), v1 como respaldo
+        const endpoints = [
+          `https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent?key=${encodeURIComponent(key)}`,
+          `https://generativelanguage.googleapis.com/v1/models/${modelo}:generateContent?key=${encodeURIComponent(key)}`
+        ];
 
-          if (resAttempt.ok) {
-            response = resAttempt;
+        if (onProgress) onProgress(i + 1, archivos.length, `Enviando imagen ${i + 1} a Google Gemini (${modelo})...`);
+        console.info(`[GeminiVisionService] Intentando modelo: ${modelo}`);
+
+        let modeloRespondio = false;
+
+        for (const endpointUrl of endpoints) {
+          try {
+            const resAttempt = await fetch(endpointUrl, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'x-goog-api-key': key
+              },
+              body: JSON.stringify(requestBody)
+            });
+
+            if (resAttempt.ok) {
+              response     = resAttempt;
+              modeloUsado  = modelo;
+              modeloRespondio = true;
+              break;
+            }
+
+            const errJson  = await resAttempt.json().catch(() => ({}));
+            const errMsg   = errJson.error?.message || resAttempt.statusText;
+            ultimoError    = `(${resAttempt.status}) ${errMsg}`;
+
+            // Solo 404 permite seguir intentando con el siguiente modelo.
+            // 401/403 → credenciales inválidas, 429 → cuota, red → abortar cascada.
+            if (resAttempt.status !== 404) {
+              modeloRespondio = true; // marcar para salir del loop de candidatos
+              break;
+            }
+          } catch (errNet) {
+            ultimoError = errNet.message;
+            modeloRespondio = true; // error de red → no tiene sentido seguir
             break;
-          } else {
-            const errJson = await resAttempt.json().catch(() => ({}));
-            ultimoError = `(${resAttempt.status}) ${errJson.error?.message || resAttempt.statusText}`;
           }
-        } catch (errNet) {
-          ultimoError = errNet.message;
+        }
+
+        if (response) {
+          // Éxito: guardar modelo que funcionó para la próxima llamada
+          localStorage.setItem(this.STORAGE_MODELO_ACTIVO, modeloUsado);
+          console.info(`[GeminiVisionService] ✅ Modelo activo: ${modeloUsado} (guardado en caché)`);
+          break;
+        }
+
+        // Si el error NO es 404, no tiene sentido probar otros modelos
+        if (modeloRespondio && ultimoError && !ultimoError.startsWith('(404)')) break;
+
+        // Error 404 → limpiar caché de modelo y probar el siguiente candidato
+        if (candidato === modeloCacheado) {
+          localStorage.removeItem(this.STORAGE_MODELO_ACTIVO);
+          console.warn(`[GeminiVisionService] Modelo cacheado "${modelo}" devolvió 404. Probando cascada completa...`);
+        } else {
+          console.warn(`[GeminiVisionService] Modelo "${modelo}" no disponible (404). Probando siguiente candidato...`);
         }
       }
 
-      if (!response || !response.ok) {
+      if (!response) {
         if (ultimoError && ultimoError.includes('429')) {
           throw new Error(`Límite de cuota excedido (429): ${ultimoError}. Espere un momento e intente de nuevo.`);
         }
-        throw new Error(`Error en API Gemini: ${ultimoError || 'No se pudo conectar con el modelo gemini-2.5-flash'}`);
+        const nombresIntentados = candidatosOrdenados.join(', ');
+        throw new Error(`Error en API Gemini: ${ultimoError || 'Sin respuesta'} (modelos intentados: ${nombresIntentados})`);
       }
 
       const resData = await response.json();
@@ -322,9 +381,10 @@ Responde ÚNICAMENTE con el objeto JSON válido sin texto explicativo.
       const data     = await res.json();
       // Normalizar: quitar el prefijo "models/" que devuelve la API
       const nombres  = (data.models || []).map(m => m.name.replace(/^models\//, ''));
-      // ⚠ Este literal DEBE coincidir con modeloNombre en analizarLoteCuadernos()
-      const modeloActual = 'gemini-2.5-flash';
-      const disponible   = nombres.includes(modeloActual);
+      // Verificar cuáles de nuestros candidatos siguen disponibles
+      const modeloActual      = this.MODELOS_CANDIDATOS[0]; // el principal preferido
+      const candidatosActivos = this.MODELOS_CANDIDATOS.filter(m => nombres.includes(m));
+      const disponible        = candidatosActivos.length > 0;
 
       const resultado = { disponible, modelos: nombres, modeloActual };
 
