@@ -46,6 +46,12 @@ document.addEventListener('DOMContentLoaded', () => {
   formatosCtrl.setFirebaseRepository(firebaseRepo);
   formatosCtrl.setBioanalisisRepository(bioRepo);
 
+  // Exponer formatosCtrl globalmente (necesario para guardar API Key de Gemini desde el modal)
+  window.formatosCtrl = formatosCtrl;
+
+  // ── Conectar botón de cerrar sesión (logout) ─────────────────
+  loginView.bindCerrarSesion();
+
   // ── Arranque: el login notifica cuando el usuario entra ─────
   loginView.bind(() => {
     appView.mostrar();

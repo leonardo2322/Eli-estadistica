@@ -3,9 +3,8 @@
  * js/config/firebase-config.js
  * -------------------------------------------------------------------------
  * Configuración e inicialización de Firebase para Eli-Estadística.
- * 
- * Reemplaza los valores de 'firebaseConfig' con las credenciales de tu
- * proyecto de Firebase (obtenidas desde https://console.firebase.google.com/).
+ *
+ * Incluye: Cloud Firestore + Firebase Authentication (Email/Contraseña)
  * =========================================================================
  */
 
@@ -23,11 +22,13 @@ const firebaseConfig = {
 };
 
 // Instancias globales
-let db = null;
+let db   = null;
+let auth = null;
 let firebaseInitialized = false;
 
 /**
- * Inicializa la app de Firebase y activa Cloud Firestore con soporte offline.
+ * Inicializa la app de Firebase, activa Cloud Firestore con soporte offline
+ * y configura Firebase Authentication.
  * @returns {boolean} true si se inicializó con éxito
  */
 function initFirebase() {
@@ -45,6 +46,7 @@ function initFirebase() {
       firebase.initializeApp(firebaseConfig);
     }
 
+    // ── Firestore ─────────────────────────────────────────────────────────
     db = firebase.firestore();
 
     // Activar soporte offline para sincronización local en Firestore
@@ -56,8 +58,15 @@ function initFirebase() {
       }
     });
 
+    // ── Authentication ────────────────────────────────────────────────────
+    auth = firebase.auth();
+    // Persistencia de sesión en el navegador (se restaura aunque se cierre la pestaña)
+    auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(err => {
+      console.warn('Auth persistence warning:', err.message);
+    });
+
     firebaseInitialized = true;
-    console.log('🔥 Firebase Cloud Firestore inicializado correctamente.');
+    console.log('🔥 Firebase (Firestore + Auth) inicializado correctamente.');
     return true;
   } catch (error) {
     console.error('❌ Error al inicializar Firebase:', error);
@@ -69,3 +78,4 @@ function initFirebase() {
 document.addEventListener('DOMContentLoaded', () => {
   initFirebase();
 });
+

@@ -167,7 +167,7 @@ class FormatosController {
             const filaParId = mapaParasitos[pNombre];
             if (filaParId) {
               const valPrev = this.repo.obtenerCelda('coproanalisis', 'coproanalisis_h1', turnoId, ano, mes, filaParId, dia);
-              this.repo.actualizarCelda('coproanalisis', 'coproanalisis_h1', turnoId, ano, mes, filaParId, dia, valPrev + 1);
+              this.repo.actualizarCelda('coproanalisis', 'coproanalisis_h1', turnoId, ano, mes, filaParId, dia, valPrev + (item.multiplicador || 1));
             }
           });
         }

@@ -44,23 +44,56 @@
         <h2>Eli-Estadística</h2>
         <p>Sistema de Bioanálisis &amp; Estadísticas</p>
       </div>
-      <!-- Paso 1 -->
-      <div id="login-step-1" class="login-step-content active">
-        <p class="login-desc text-center mb-4">Bienvenida, Lic. Eliana Morales. Pulse el botón para inicializar el sistema.</p>
-        <button id="btn-iniciar" class="btn btn-login w-100">
+
+      <!-- Formulario de autenticación real -->
+      <form id="login-form" class="login-step-content active" novalidate>
+        <div class="login-field-group mb-3">
+          <label for="inp-login-email" class="login-label">Correo electrónico</label>
+          <div class="login-input-wrap">
+            <i class="bi bi-envelope-fill login-input-icon"></i>
+            <input
+              type="email"
+              id="inp-login-email"
+              class="login-input"
+              placeholder="tu@correo.com"
+              autocomplete="email"
+              required
+            >
+          </div>
+        </div>
+        <div class="login-field-group mb-4">
+          <label for="inp-login-pass" class="login-label">Contraseña</label>
+          <div class="login-input-wrap">
+            <i class="bi bi-lock-fill login-input-icon"></i>
+            <input
+              type="password"
+              id="inp-login-pass"
+              class="login-input"
+              placeholder="••••••••"
+              autocomplete="current-password"
+              required
+            >
+            <button type="button" id="btn-toggle-login-pass" class="login-eye-btn" tabindex="-1" title="Mostrar/ocultar">
+              <i class="bi bi-eye-fill" id="ico-toggle-login-pass"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Mensaje de error -->
+        <div id="login-error" class="login-error-box d-none">
+          <i class="bi bi-exclamation-triangle-fill me-1"></i>
+          <span id="login-error-msg"></span>
+        </div>
+
+        <button type="submit" id="btn-login-submit" class="btn btn-login w-100 mt-2">
           <i class="bi bi-shield-lock-fill me-2"></i>Iniciar Sesión
         </button>
-      </div>
-      <!-- Paso 2 -->
-      <div id="login-step-2" class="login-step-content">
-        <div class="text-center mb-4">
-          <div class="spinner-border text-teal mb-3" role="status"><span class="visually-hidden">Cargando...</span></div>
-          <p class="text-teal-status fw-bold"><i class="bi bi-check-circle-fill me-2"></i>¡Conexión Establecida!</p>
-          <p class="login-desc">Todo listo para registrar exámenes.</p>
-        </div>
-        <button id="btn-continuar" class="btn btn-continue w-100">
-          Continuar al Sistema <i class="bi bi-arrow-right ms-2"></i>
-        </button>
+      </form>
+
+      <!-- Spinner de verificando sesión -->
+      <div id="login-checking" class="login-step-content text-center py-3">
+        <div class="spinner-border text-teal mb-2" role="status" style="width:2rem;height:2rem;"></div>
+        <p class="text-muted small mb-0">Verificando sesión...</p>
       </div>
     </div>
   </div>
@@ -79,7 +112,7 @@
           <span class="navbar-toggler-icon"></span>
         </button>
         <div class="collapse navbar-collapse justify-content-end" id="navbarNav">
-          <ul class="navbar-nav nav-pills" id="main-nav-tabs">
+          <ul class="navbar-nav nav-pills align-items-center" id="main-nav-tabs">
             <li class="nav-item">
               <a class="nav-link active" href="#" data-section="section-inicio">
                 <i class="bi bi-house-heart me-1"></i>Inicio
@@ -101,6 +134,17 @@
               </a>
             </li>
           </ul>
+
+          <!-- Usuario autenticado + Cerrar Sesión -->
+          <div class="navbar-user-info d-flex align-items-center gap-2 ms-3">
+            <span id="navbar-user-email" class="navbar-email-badge d-none">
+              <i class="bi bi-person-circle me-1"></i>
+              <span id="navbar-email-txt"></span>
+            </span>
+            <button id="btn-cerrar-sesion" class="btn btn-logout d-none" title="Cerrar sesión">
+              <i class="bi bi-box-arrow-right me-1"></i>Salir
+            </button>
+          </div>
         </div>
       </div>
     </nav>
