@@ -117,7 +117,9 @@ Responde ÚNICAMENTE con el objeto JSON válido sin texto explicativo.
 `;
 
     // Nombre oficial del modelo estándar de visión/OCR
-    const modeloNombre = 'gemini-1.5-flash';
+    // Se elimina cualquier prefijo "models/" para evitar duplicar el segmento en la URL
+    // (e.g. "models/gemini-1.5-flash" → "gemini-1.5-flash")
+    const modeloNombre = 'gemini-1.5-flash'.replace(/^models\//, '');
 
     // Lista de endpoints a probar (v1 estable primero, v1beta como respaldo) sin duplicar "models/"
     const endpointsToTry = [
