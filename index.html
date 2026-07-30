@@ -847,5 +847,76 @@
 
   <!-- 6. Orquestador / Arranque -->
   <script src="app.js"></script>
+
+  <!-- ══ Modal: Configurar API Key de Google Gemini ══════════════════════ -->
+  <div class="modal fade" id="modal-gemini-key" tabindex="-1" aria-labelledby="modal-gemini-key-label" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content border-0 shadow-lg">
+
+        <div class="modal-header" style="background: linear-gradient(135deg,#0d9488,#0f766e); color:#fff;">
+          <h5 class="modal-title fw-bold" id="modal-gemini-key-label">
+            <i class="bi bi-key-fill me-2"></i>Clave API de Google Gemini IA
+          </h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+
+        <div class="modal-body px-4 pt-4 pb-3">
+
+          <!-- Info clave actual -->
+          <p class="small text-muted mb-3" id="gemini-key-estado">
+            <!-- Se rellena dinámicamente: muestra los últimos 4 chars enmascarados -->
+          </p>
+
+          <!-- Input de la nueva clave -->
+          <label for="inp-gemini-key" class="form-label fw-semibold">
+            Ingrese su API Key
+          </label>
+          <div class="input-group mb-1">
+            <span class="input-group-text"><i class="bi bi-shield-lock-fill text-teal"></i></span>
+            <input
+              type="password"
+              id="inp-gemini-key"
+              class="form-control"
+              placeholder="AIzaSy..."
+              autocomplete="off"
+              spellcheck="false"
+            >
+            <button
+              type="button"
+              id="btn-toggle-gemini-key"
+              class="btn btn-outline-secondary"
+              title="Mostrar / ocultar clave"
+              tabindex="-1"
+            >
+              <i class="bi bi-eye-fill" id="ico-toggle-gemini-key"></i>
+            </button>
+          </div>
+          <p class="small text-muted mt-2 mb-0">
+            Obténgala gratis en
+            <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener" class="text-teal fw-semibold">
+              aistudio.google.com
+            </a>.
+            Se guarda en este dispositivo y se sincroniza con Cloud Firestore.
+          </p>
+
+        </div>
+
+        <div class="modal-footer px-4 pb-4 pt-0 border-0 gap-2">
+          <button type="button" id="btn-gemini-key-eliminar" class="btn btn-sm btn-outline-danger">
+            <i class="bi bi-trash me-1"></i>Eliminar clave
+          </button>
+          <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">
+            Cancelar
+          </button>
+          <button type="button" id="btn-gemini-key-guardar" class="btn btn-sm btn-teal-action">
+            <i class="bi bi-floppy-fill me-1"></i>Guardar
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </div>
+  <!-- ══ /Modal Gemini Key ════════════════════════════════════════════════ -->
+
 </body>
 </html>

@@ -1146,21 +1146,79 @@ class FormatosView {
 
     const $btnConfigKey = document.getElementById('btn-config-gemini-key');
     if ($btnConfigKey) {
+      // ── Referencias al modal ──────────────────────────────────────────
+      const modalEl       = document.getElementById('modal-gemini-key');
+      const $inpKey       = document.getElementById('inp-gemini-key');
+      const $lblEstado    = document.getElementById('gemini-key-estado');
+      const $btnGuardar   = document.getElementById('btn-gemini-key-guardar');
+      const $btnEliminar  = document.getElementById('btn-gemini-key-eliminar');
+      const $btnToggle    = document.getElementById('btn-toggle-gemini-key');
+      const $icoToggle    = document.getElementById('ico-toggle-gemini-key');
+      const bsModal       = new bootstrap.Modal(modalEl);
+
+      // ── Abrir modal: mostrar solo los últimos 4 chars enmascarados ────
       $btnConfigKey.addEventListener('click', () => {
         const actualKey = GeminiVisionService.obtenerApiKey();
-        const nuevaKey = prompt(
-          'Ingrese su API Key gratuita de Google Gemini:\n(Obténgala en https://aistudio.google.com/app/apikey)',
-          actualKey
-        );
-        if (nuevaKey !== null) {
-          const fbRepo = (window.formatosCtrl && window.formatosCtrl.firebaseRepo) ? window.formatosCtrl.firebaseRepo : null;
-          GeminiVisionService.guardarApiKey(nuevaKey, fbRepo);
-          if (nuevaKey.trim()) {
-            DomHelpers.mostrarToast('¡API Key de Google Gemini guardada y sincronizada con Cloud Firestore! IA activada.', 'success');
-          } else {
-            DomHelpers.mostrarToast('API Key eliminada. El sistema usará el motor local Tesseract.', 'info');
-          }
+        if (actualKey) {
+          const visible = actualKey.slice(-4);
+          const puntos  = '•'.repeat(Math.min(actualKey.length - 4, 20));
+          $lblEstado.innerHTML =
+            `<i class="bi bi-check-circle-fill text-success me-1"></i>` +
+            `Clave actual guardada: <code class="user-select-none">${puntos}${visible}</code>` +
+            ` (${actualKey.length} caracteres). Deja el campo vacío y guarda para <strong>reemplazarla</strong>.`;
+        } else {
+          $lblEstado.innerHTML =
+            `<i class="bi bi-exclamation-triangle-fill text-warning me-1"></i>` +
+            `No hay clave guardada. Ingrese su API Key para activar el reconocimiento con IA.`;
         }
+        // ← input siempre vacío: nunca se muestra la clave en texto plano
+        $inpKey.value = '';
+        $inpKey.type  = 'password';
+        $icoToggle.className = 'bi bi-eye-fill';
+        bsModal.show();
+        // Enfocar el input tras la animación de apertura
+        modalEl.addEventListener('shown.bs.modal', () => $inpKey.focus(), { once: true });
+      });
+
+      // ── Toggle ojo: mostrar / ocultar mientras se escribe ─────────────
+      $btnToggle.addEventListener('click', () => {
+        const oculto = $inpKey.type === 'password';
+        $inpKey.type          = oculto ? 'text' : 'password';
+        $icoToggle.className  = oculto ? 'bi bi-eye-slash-fill' : 'bi bi-eye-fill';
+      });
+
+      // ── Guardar ───────────────────────────────────────────────────────
+      const guardarClave = () => {
+        const nuevaKey = $inpKey.value.trim();
+        const fbRepo   = (window.formatosCtrl && window.formatosCtrl.firebaseRepo)
+          ? window.formatosCtrl.firebaseRepo : null;
+        GeminiVisionService.guardarApiKey(nuevaKey, fbRepo);
+        bsModal.hide();
+        if (nuevaKey) {
+          DomHelpers.mostrarToast('¡API Key de Google Gemini guardada y sincronizada con Cloud Firestore! IA activada.', 'success');
+        } else {
+          DomHelpers.mostrarToast('API Key eliminada. El sistema usará el motor local Tesseract.', 'info');
+        }
+      };
+
+      $btnGuardar.addEventListener('click', guardarClave);
+      // Guardar también con Enter dentro del input
+      $inpKey.addEventListener('keydown', e => { if (e.key === 'Enter') guardarClave(); });
+
+      // ── Eliminar ──────────────────────────────────────────────────────
+      $btnEliminar.addEventListener('click', () => {
+        const fbRepo = (window.formatosCtrl && window.formatosCtrl.firebaseRepo)
+          ? window.formatosCtrl.firebaseRepo : null;
+        GeminiVisionService.guardarApiKey('', fbRepo);
+        bsModal.hide();
+        DomHelpers.mostrarToast('API Key eliminada. El sistema usará el motor local Tesseract.', 'info');
+      });
+
+      // ── Limpiar input al cerrar (la clave nunca queda en el DOM) ──────
+      modalEl.addEventListener('hidden.bs.modal', () => {
+        $inpKey.value = '';
+        $inpKey.type  = 'password';
+        $icoToggle.className = 'bi bi-eye-fill';
       });
     }
 

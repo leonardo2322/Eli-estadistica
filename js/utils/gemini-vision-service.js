@@ -132,7 +132,8 @@ Responde ÚNICAMENTE con el objeto JSON válido sin texto explicativo.
 `;
 
     // ── Selección de modelo con caché ────────────────────────────────────
-    // Se lee el último modelo que funcionó; si falla con 404, se prueba la cascada completa.
+    // Se lee el último modelo que funcionó; si falla con 404 o 429+limit:0,
+    // se invalida el caché y se prueba la cascada completa desde MODELOS_CANDIDATOS.
     const modeloCacheado = (localStorage.getItem(this.STORAGE_MODELO_ACTIVO) || '').trim();
     // Construye la lista: modelo cacheado primero (si existe y está en candidatos),
     // seguido de los demás candidatos que aún no se han probado.
@@ -187,7 +188,7 @@ Responde ÚNICAMENTE con el objeto JSON válido sin texto explicativo.
         if (onProgress) onProgress(i + 1, archivos.length, `Enviando imagen ${i + 1} a Google Gemini (${modelo})...`);
         console.info(`[GeminiVisionService] Intentando modelo: ${modelo}`);
 
-        let modeloRespondio = false;
+        let debeAvanzar = false; // true → error recuperable, probar siguiente candidato
 
         for (const endpointUrl of endpoints) {
           try {
@@ -203,24 +204,32 @@ Responde ÚNICAMENTE con el objeto JSON válido sin texto explicativo.
             if (resAttempt.ok) {
               response     = resAttempt;
               modeloUsado  = modelo;
-              modeloRespondio = true;
               break;
             }
 
-            const errJson  = await resAttempt.json().catch(() => ({}));
-            const errMsg   = errJson.error?.message || resAttempt.statusText;
-            ultimoError    = `(${resAttempt.status}) ${errMsg}`;
+            const errJson = await resAttempt.json().catch(() => ({}));
+            const errMsg  = errJson.error?.message || resAttempt.statusText;
+            ultimoError   = `(${resAttempt.status}) ${errMsg}`;
 
-            // Solo 404 permite seguir intentando con el siguiente modelo.
-            // 401/403 → credenciales inválidas, 429 → cuota, red → abortar cascada.
-            if (resAttempt.status !== 404) {
-              modeloRespondio = true; // marcar para salir del loop de candidatos
+            if (resAttempt.status === 404) {
+              // Modelo retirado o no disponible → avanzar al siguiente candidato
+              debeAvanzar = true;
               break;
             }
+
+            if (resAttempt.status === 429 && /limit[:\s]+0\b/.test(errMsg)) {
+              // 429 con "limit: 0" → modelo bloqueado permanentemente para plan gratuito.
+              // No es un rate-limit temporal: avanzar al siguiente candidato.
+              console.warn(`[GeminiVisionService] Modelo "${modelo}" bloqueado (429 limit:0) para plan gratuito. Probando siguiente...`);
+              debeAvanzar = true;
+              break;
+            }
+
+            // Cualquier otro error (401/403/429 real/red) → abortar cascada
+            break;
           } catch (errNet) {
             ultimoError = errNet.message;
-            modeloRespondio = true; // error de red → no tiene sentido seguir
-            break;
+            break; // error de red → no tiene sentido seguir con más endpoints ni candidatos
           }
         }
 
@@ -231,20 +240,24 @@ Responde ÚNICAMENTE con el objeto JSON válido sin texto explicativo.
           break;
         }
 
-        // Si el error NO es 404, no tiene sentido probar otros modelos
-        if (modeloRespondio && ultimoError && !ultimoError.startsWith('(404)')) break;
-
-        // Error 404 → limpiar caché de modelo y probar el siguiente candidato
-        if (candidato === modeloCacheado) {
-          localStorage.removeItem(this.STORAGE_MODELO_ACTIVO);
-          console.warn(`[GeminiVisionService] Modelo cacheado "${modelo}" devolvió 404. Probando cascada completa...`);
-        } else {
-          console.warn(`[GeminiVisionService] Modelo "${modelo}" no disponible (404). Probando siguiente candidato...`);
+        if (debeAvanzar) {
+          // Invalida caché si el modelo que falló era el que estaba guardado
+          if (candidato === modeloCacheado) {
+            localStorage.removeItem(this.STORAGE_MODELO_ACTIVO);
+            console.warn(`[GeminiVisionService] Caché de modelo invalidada ("${modelo}" ya no disponible). Probando cascada completa...`);
+          } else {
+            console.warn(`[GeminiVisionService] Modelo "${modelo}" no disponible. Probando siguiente candidato...`);
+          }
+          continue; // pasar al siguiente candidato en MODELOS_CANDIDATOS
         }
+
+        // Error no recuperable (401/403/429 real/red) → abortar toda la cascada
+        break;
       }
 
       if (!response) {
-        if (ultimoError && ultimoError.includes('429')) {
+        // 429 sin "limit: 0" → rate limit temporal real; pedir al usuario que espere
+        if (ultimoError && ultimoError.includes('429') && !/limit[:\s]+0\b/.test(ultimoError)) {
           throw new Error(`Límite de cuota excedido (429): ${ultimoError}. Espere un momento e intente de nuevo.`);
         }
         const nombresIntentados = candidatosOrdenados.join(', ');
