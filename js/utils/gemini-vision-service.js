@@ -19,6 +19,7 @@ class GeminiVisionService {
    * Para agregar o cambiar modelos en el futuro, edita SOLO este array.
    */
   static MODELOS_CANDIDATOS = [
+    'gemini-3.5-flash',           // más reciente — primera opción
     'gemini-2.5-flash-lite',      // más disponible para API keys nuevas
     'gemini-2.5-flash',           // versión completa (puede estar restringida)
     'gemini-2.0-flash',           // respaldo generación anterior
