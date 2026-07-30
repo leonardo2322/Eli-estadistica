@@ -165,9 +165,11 @@ class FormatosView {
     });
 
     // Exportar CSV
-    this.$btnExportarCSV.addEventListener('click', () => {
-      if (handlers.onExportar) handlers.onExportar();
-    });
+    if (this.$btnExportarCSV) {
+      this.$btnExportarCSV.addEventListener('click', () => {
+        if (handlers.onExportar) handlers.onExportar();
+      });
+    }
 
     // Exportar Excel (.xlsx Estilizado)
     const $btnExportarExcel = document.getElementById('fmt-btn-exportar-excel');

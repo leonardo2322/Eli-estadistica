@@ -106,7 +106,8 @@ const CsvExport = (() => {
 
   /**
    * Genera el cuerpo HTML estilizado compatible con Excel y la Impresión Directa
-   * idéntico a la plantilla Formatos_Hospital_San_Jose_v2 con campos llenos.
+   * idéntico a la plantilla Formatos_Hospital_San_Jose_v2 con campos llenos
+   * ajustado para encajar perfectamente en 1 SOLA HOJA de impresión horizontal.
    */
   function generarFormatoExcelHTML(area, hoja, turnoLabel, mes, ano, dias, datos) {
     const mesLabel = NOMBRES_MESES[mes - 1];
@@ -130,56 +131,74 @@ const CsvExport = (() => {
   </xml>
   <![endif]-->
   <style>
-    body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 10pt; margin: 15px; }
-    table { border-collapse: collapse; width: 100%; font-family: 'Segoe UI', Arial, sans-serif; margin-bottom: 10px; }
-    th, td { border: 1px solid #7f8c8d; padding: 4px 6px; text-align: center; vertical-align: middle; }
-    .h-hospital { background-color: #004d40; color: #ffffff; font-weight: bold; font-size: 13pt; text-align: center; }
-    .h-area { background-color: #00695c; color: #ffffff; font-weight: bold; font-size: 11pt; text-align: center; }
-    .h-meta { background-color: #e0f2f1; color: #004d40; font-weight: bold; font-size: 10pt; text-align: center; }
-    .h-dias { background-color: #cfd8dc; color: #263238; font-weight: bold; font-size: 9pt; }
-    .row-grupo { background-color: #80cbc4; color: #004d40; font-weight: bold; font-size: 10pt; text-align: left; padding-left: 10px; }
-    .col-label { text-align: left; font-weight: 600; background-color: #f8fafc; font-size: 9pt; white-space: nowrap; }
-    .cell-val { mso-number-format:"0"; font-size: 9pt; }
-    .cell-val-zero { color: #94a3b8; mso-number-format:"0"; font-size: 9pt; }
-    .cell-total { background-color: #e0f2f1; font-weight: bold; color: #004d40; mso-number-format:"0"; font-size: 9.5pt; }
+    * { box-sizing: border-box; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 9pt; margin: 10px; background-color: #ffffff; color: #1e293b; }
+    .print-container { width: 100%; max-width: 100%; margin: 0 auto; }
+    table { border-collapse: collapse; width: 100%; table-layout: fixed; font-family: 'Segoe UI', Arial, sans-serif; margin-bottom: 5px; }
+    th, td { border: 1px solid #64748b; padding: 2px 4px; text-align: center; vertical-align: middle; line-height: 1.15; overflow: hidden; text-overflow: ellipsis; }
+    .h-hospital { background-color: #004d40; color: #ffffff; font-weight: bold; font-size: 11pt; text-align: center; }
+    .h-area { background-color: #00695c; color: #ffffff; font-weight: bold; font-size: 9.5pt; text-align: center; }
+    .h-meta { background-color: #e0f2f1; color: #004d40; font-weight: bold; font-size: 8.5pt; text-align: center; }
+    .h-dias { background-color: #cfd8dc; color: #1e293b; font-weight: bold; font-size: 7.5pt; }
+    .row-grupo { background-color: #80cbc4; color: #004d40; font-weight: bold; font-size: 8.5pt; text-align: left; padding-left: 6px; }
+    .col-label { text-align: left; font-weight: 600; background-color: #f8fafc; font-size: 8pt; white-space: nowrap; }
+    .cell-val { mso-number-format:"0"; font-size: 8pt; }
+    .cell-val-zero { color: #94a3b8; mso-number-format:"0"; font-size: 8pt; }
+    .cell-total { background-color: #e0f2f1; font-weight: bold; color: #004d40; mso-number-format:"0"; font-size: 8.5pt; }
     .row-total { background-color: #b2dfdb; font-weight: bold; }
+    .footer-sig { font-size: 8pt; font-style: italic; color: #334155; margin-top: 10px; border: none; }
+
     @media print {
-      @page { size: landscape; margin: 8mm; }
-      body { margin: 0; }
-      .h-hospital { background-color: #004d40 !important; -webkit-print-color-adjust: exact; }
-      .h-area { background-color: #00695c !important; -webkit-print-color-adjust: exact; }
-      .h-meta { background-color: #e0f2f1 !important; -webkit-print-color-adjust: exact; }
-      .row-grupo { background-color: #80cbc4 !important; -webkit-print-color-adjust: exact; }
-      .cell-total { background-color: #e0f2f1 !important; -webkit-print-color-adjust: exact; }
-      .row-total { background-color: #b2dfdb !important; -webkit-print-color-adjust: exact; }
+      @page { size: landscape; margin: 4mm 5mm 4mm 5mm; }
+      html, body { margin: 0 !important; padding: 0 !important; background: #fff !important; width: 100%; height: 100%; overflow: hidden; }
+      .print-container { width: 100% !important; transform: scale(0.95); transform-origin: top left; }
+      table { table-layout: fixed !important; width: 100% !important; page-break-inside: avoid !important; }
+      tr { page-break-inside: avoid !important; page-break-after: auto !important; }
+      th, td { padding: 1.5px 2px !important; font-size: 7pt !important; border: 1px solid #475569 !important; }
+      .h-hospital { background-color: #004d40 !important; color: #fff !important; font-size: 9.5pt !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .h-area { background-color: #00695c !important; color: #fff !important; font-size: 8pt !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .h-meta { background-color: #e0f2f1 !important; color: #004d40 !important; font-size: 7.5pt !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .h-dias th { background-color: #cbd5e1 !important; font-size: 6.5pt !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .row-grupo { background-color: #80cbc4 !important; color: #004d40 !important; font-size: 7.5pt !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .col-label { font-size: 7pt !important; white-space: nowrap !important; }
+      .cell-val, .cell-val-zero, .cell-total { font-size: 7pt !important; }
+      .cell-total { background-color: #e0f2f1 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .row-total { background-color: #b2dfdb !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .footer-sig { margin-top: 6px !important; font-size: 7.5pt !important; }
     }
   </style>
 </head>
 <body>
-  <table>
-    <thead>
-      <tr>
-        <th colspan="${totalCols}" class="h-hospital">HOSPITAL II "SAN JOSÉ" TOVAR</th>
-      </tr>
-      <tr>
-        <th colspan="${totalCols}" class="h-area">FORMATO ESTADÍSTICO MENSUAL DE BIOANÁLISIS — ÁREA: ${DomHelpers.esc(area.label.toUpperCase())}</th>
-      </tr>
-      <tr>
-        <th colspan="${totalCols}" class="h-meta">HOJA: ${DomHelpers.esc(hoja.label.toUpperCase())} &nbsp;|&nbsp; MES: ${mesLabel.toUpperCase()} ${ano} &nbsp;|&nbsp; TURNO: ${DomHelpers.esc(turnoLabel.toUpperCase())}</th>
-      </tr>
-      <tr class="h-dias">
-        <th style="min-width: 220px; text-align: left;">CONCEPTO / SERVICIO / EXAMEN</th>
-        ${dias.map(d => `<th style="width: 28px;">${String(d).padStart(2, '0')}</th>`).join('')}
-        <th style="width: 50px; background-color: #b2dfdb;">TOTAL</th>
-      </tr>
-    </thead>
-    <tbody>`;
+  <div class="print-container">
+    <table>
+      <colgroup>
+        <col style="width: 22%;">
+        ${dias.map(() => `<col style="width: 2.3%;">`).join('')}
+        <col style="width: 6.7%;">
+      </colgroup>
+      <thead>
+        <tr>
+          <th colspan="${totalCols}" class="h-hospital">HOSPITAL II "SAN JOSÉ" TOVAR</th>
+        </tr>
+        <tr>
+          <th colspan="${totalCols}" class="h-area">FORMATO ESTADÍSTICO MENSUAL DE BIOANÁLISIS — ÁREA: ${DomHelpers.esc(area.label.toUpperCase())}</th>
+        </tr>
+        <tr>
+          <th colspan="${totalCols}" class="h-meta">HOJA: ${DomHelpers.esc(hoja.label.toUpperCase())} &nbsp;|&nbsp; MES: ${mesLabel.toUpperCase()} ${ano} &nbsp;|&nbsp; TURNO: ${DomHelpers.esc(turnoLabel.toUpperCase())}</th>
+        </tr>
+        <tr class="h-dias">
+          <th style="text-align: left; padding-left: 5px;">CONCEPTO / SERVICIO / EXAMEN</th>
+          ${dias.map(d => `<th>${String(d).padStart(2, '0')}</th>`).join('')}
+          <th style="background-color: #b2dfdb;">TOTAL</th>
+        </tr>
+      </thead>
+      <tbody>`;
 
     hoja.grupos.forEach(grupo => {
       html += `
-      <tr>
-        <td colspan="${totalCols}" class="row-grupo">--- ${DomHelpers.esc(grupo.titulo.toUpperCase())} ---</td>
-      </tr>`;
+        <tr>
+          <td colspan="${totalCols}" class="row-grupo">--- ${DomHelpers.esc(grupo.titulo.toUpperCase())} ---</td>
+        </tr>`;
 
       grupo.filas.forEach(fila => {
         const filaData = datos[fila.id] || {};
@@ -202,19 +221,19 @@ const CsvExport = (() => {
     });
 
     html += `
-    </tbody>
-  </table>
-  <br>
-  <table style="border: none; margin-top: 20px;">
-    <tr style="border: none;">
-      <td style="border: none; text-align: left; font-weight: bold;" colspan="15">
-        Lic. Eliana Morales — Bioanalista
-      </td>
-      <td style="border: none; text-align: right; font-weight: bold;" colspan="${totalCols - 15}">
-        Firma y Sello del Hospital San José
-      </td>
-    </tr>
-  </table>
+      </tbody>
+    </table>
+    <table class="footer-sig" style="border: none; width: 100%;">
+      <tr style="border: none;">
+        <td style="border: none; text-align: left; font-weight: bold;" colspan="15">
+          Lic. Eliana Morales — Bioanalista
+        </td>
+        <td style="border: none; text-align: right; font-weight: bold;" colspan="${totalCols - 15}">
+          Firma y Sello del Hospital San José
+        </td>
+      </tr>
+    </table>
+  </div>
 </body>
 </html>`;
 
