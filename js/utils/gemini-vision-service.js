@@ -19,10 +19,12 @@ class GeminiVisionService {
    * Para agregar o cambiar modelos en el futuro, edita SOLO este array.
    */
   static MODELOS_CANDIDATOS = [
-    'gemini-3.5-flash',           // más reciente — primera opción
-    'gemini-2.5-flash-lite',      // más disponible para API keys nuevas
-    'gemini-2.5-flash',           // versión completa (puede estar restringida)
-    'gemini-2.0-flash',           // respaldo generación anterior
+    'gemini-3.5-flash',        // RPD: 20  — primera opción, cuota disponible
+    'gemini-3.1-flash-lite',   // RPD: 500 — mayor límite diario, sin usar
+    'gemini-3.5-flash-lite',   // RPD: 500 — mayor límite diario, sin usar
+    'gemini-3.6-flash',        // RPD: 20  — sin usar
+    'gemini-2.5-flash-lite',   // RPD: 20  — respaldo, algo de cuota restante
+    // EXCLUIDOS: gemini-2.5-flash (RPD agotado hoy), gemini-2.0-flash (sin acceso en este plan)
   ];
 
   /** Clave localStorage donde se guarda el último modelo que funcionó. */
@@ -226,7 +228,15 @@ Responde ÚNICAMENTE con el objeto JSON válido sin texto explicativo.
               break;
             }
 
-            // Cualquier otro error (401/403/429 real/red) → abortar cascada
+            if (resAttempt.status === 503) {
+              // 503 → servidor sobrecargado temporalmente. Probar el siguiente candidato;
+              // si todos fallan, el bloque post-cascada hará wait-and-retry.
+              console.warn(`[GeminiVisionService] Modelo "${modelo}" con alta demanda (503). Probando siguiente candidato...`);
+              debeAvanzar = true;
+              break;
+            }
+
+            // Cualquier otro error (401/403/429 real) → abortar cascada
             break;
           } catch (errNet) {
             ultimoError = errNet.message;
@@ -265,11 +275,14 @@ Responde ÚNICAMENTE con el objeto JSON válido sin texto explicativo.
           throw new Error(`Límite de cuota excedido (429): ${ultimoError}. Espere un momento e intente de nuevo.`);
         }
 
-        // Todos los modelos bloqueados (429 + limit:0). Intentar extraer el tiempo
-        // de espera sugerido por la API ("Please retry in Xs") y reintentar una vez.
-        const segundosEspera = this._extraerSegundosRetry(ultimoError || '');
+        // Todos los modelos fallaron con 429+limit:0 o 503 (sobrecarga temporal).
+        // Extraer el tiempo de espera del mensaje; si no viene, usar 15 s por defecto para 503.
+        const es503 = ultimoError && ultimoError.includes('503');
+        const segundosEspera = this._extraerSegundosRetry(ultimoError || '')
+          ?? (es503 ? 15 : null);
+
         if (segundosEspera !== null && segundosEspera > 0 && segundosEspera <= 120) {
-          console.warn(`[GeminiVisionService] Todos los modelos bloqueados. Esperando ${segundosEspera}s antes de reintentar...`);
+          console.warn(`[GeminiVisionService] Todos los modelos no disponibles. Esperando ${segundosEspera}s antes de reintentar...`);
           await this._esperarConContador(segundosEspera, i + 1, archivos.length, onProgress);
 
           // ── Reintento único tras la espera ──────────────────────────────
@@ -294,13 +307,14 @@ Responde ÚNICAMENTE con el objeto JSON válido sin texto explicativo.
                   body: JSON.stringify(requestBody)
                 });
                 if (r.ok) {
-                  responseRetry   = r;
+                  responseRetry    = r;
                   modeloUsadoRetry = modelo;
                   break;
                 }
                 const ej = await r.json().catch(() => ({}));
                 ultimoErrorRetry = `(${r.status}) ${ej.error?.message || r.statusText}`;
-                if (r.status !== 404) break; // no seguir con otros endpoints
+                // En el reintento, 404 y 503 permiten probar el siguiente candidato
+                if (r.status !== 404 && r.status !== 503) break;
               } catch (eNet) {
                 ultimoErrorRetry = eNet.message;
                 break;
@@ -311,12 +325,10 @@ Responde ÚNICAMENTE con el objeto JSON válido sin texto explicativo.
               console.info(`[GeminiVisionService] ✅ Reintento exitoso con modelo: ${modeloUsadoRetry}`);
               break;
             }
-            // En el reintento solo avanzamos en 404; cualquier otro error aborta
-            if (ultimoErrorRetry && !ultimoErrorRetry.startsWith('(404)')) break;
+            if (ultimoErrorRetry && !ultimoErrorRetry.startsWith('(404)') && !ultimoErrorRetry.startsWith('(503)')) break;
           }
 
           if (responseRetry) {
-            // Reemplazar response por el resultado del reintento y continuar el flujo normal
             response = responseRetry;
           } else {
             const nombresIntentados = candidatosOrdenados.join(', ');
