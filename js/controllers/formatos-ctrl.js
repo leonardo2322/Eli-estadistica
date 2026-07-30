@@ -53,6 +53,8 @@ class FormatosController {
       onCambioPeriodo: () => this._cargarGrilla(),
       onCeldaCambiada: (filaId, dia, valor) => this._guardarCelda(filaId, dia, valor),
       onExportar:      () => this._exportarCSV(),
+      onExportarExcel: () => this._exportarExcelEstilizado(),
+      onImprimir:      () => this._imprimirFormatoEstilizado(),
       onLimpiar:       () => this._limpiarGrilla(),
       onGuardarDB:     () => this.guardarEnBD()
     });
@@ -329,7 +331,63 @@ class FormatosController {
 
     const nombreArchivo = `Formato_${area.label}_${DateUtils.nombreMes(mes)}_${ano}_${turno?.label || turnoId}`;
     CsvExport.descargar(nombreArchivo, csv);
-    DomHelpers.mostrarToast('Formato exportado exitosamente.', 'success');
+    DomHelpers.mostrarToast('Formato CSV exportado exitosamente.', 'success');
+  }
+
+  /**
+   * Genera y descarga la planilla formateada en Excel (.xls / .xlsx) estilizada
+   * idéntica a Formatos_Hospital_San_Jose_v2 con todos los datos llenos.
+   */
+  _exportarExcelEstilizado() {
+    const areaId  = this.view.getAreaId();
+    const hojaId  = this.view.getHojaId();
+    const turnoId = this.view.getTurnoId();
+    const mes     = this.view.getMes();
+    const ano     = this.view.getAno();
+
+    if (!areaId) {
+      DomHelpers.mostrarToast('Seleccione un área antes de exportar.', 'error');
+      return;
+    }
+
+    const area    = HOSPITAL_AREAS.find(a => a.id === areaId);
+    const hoja    = area?.hojas.find(h => h.id === hojaId) || area?.hojas[0];
+    if (!area || !hoja) return;
+
+    const turno   = TURNOS.find(t => t.id === turnoId);
+    const dias    = DateUtils.diasDelMes(mes, ano);
+    const datos   = this.repo.obtenerGrilla(areaId, hojaId, turnoId, ano, mes);
+    const htmlContent = CsvExport.generarFormatoExcelHTML(area, hoja, turno?.label || turnoId, mes, ano, dias, datos);
+
+    const nombreArchivo = `Formato_Hospital_San_Jose_${area.label}_${DateUtils.nombreMes(mes)}_${ano}_${turno?.label || turnoId}`;
+    CsvExport.descargarExcelEstilizado(nombreArchivo, htmlContent);
+    DomHelpers.mostrarToast('¡Planilla de Excel estilizada descargada exitosamente!', 'success');
+  }
+
+  /**
+   * Abre la vista previa e impresión de la planilla formateada estilizada idéntica al formato físico.
+   */
+  _imprimirFormatoEstilizado() {
+    const areaId  = this.view.getAreaId();
+    const hojaId  = this.view.getHojaId();
+    const turnoId = this.view.getTurnoId();
+    const mes     = this.view.getMes();
+    const ano     = this.view.getAno();
+
+    if (!areaId) {
+      DomHelpers.mostrarToast('Seleccione un área antes de imprimir.', 'error');
+      return;
+    }
+
+    const area    = HOSPITAL_AREAS.find(a => a.id === areaId);
+    const hoja    = area?.hojas.find(h => h.id === hojaId) || area?.hojas[0];
+    if (!area || !hoja) return;
+
+    const turno   = TURNOS.find(t => t.id === turnoId);
+    const dias    = DateUtils.diasDelMes(mes, ano);
+    const datos   = this.repo.obtenerGrilla(areaId, hojaId, turnoId, ano, mes);
+
+    CsvExport.imprimirFormatoEstilizado(area, hoja, turno?.label || turnoId, mes, ano, dias, datos);
   }
 
   /**

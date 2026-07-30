@@ -105,6 +105,158 @@ const CsvExport = (() => {
   }
 
   /**
+   * Genera el cuerpo HTML estilizado compatible con Excel y la Impresión Directa
+   * idéntico a la plantilla Formatos_Hospital_San_Jose_v2 con campos llenos.
+   */
+  function generarFormatoExcelHTML(area, hoja, turnoLabel, mes, ano, dias, datos) {
+    const mesLabel = NOMBRES_MESES[mes - 1];
+    const totalCols = dias.length + 2; // Label + Días + Total
+
+    let html = `<html xmlns:o="urn:schemas-microsoft-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <!--[if gte mso 9]>
+  <xml>
+    <x:ExcelWorkbook>
+      <x:ExcelWorksheets>
+        <x:ExcelWorksheet>
+          <x:Name>${DomHelpers.esc(hoja.label)}</x:Name>
+          <x:WorksheetOptions>
+            <x:DisplayGridlines/>
+          </x:WorksheetOptions>
+        </x:ExcelWorksheet>
+      </x:ExcelWorksheets>
+    </x:ExcelWorkbook>
+  </xml>
+  <![endif]-->
+  <style>
+    body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 10pt; margin: 15px; }
+    table { border-collapse: collapse; width: 100%; font-family: 'Segoe UI', Arial, sans-serif; margin-bottom: 10px; }
+    th, td { border: 1px solid #7f8c8d; padding: 4px 6px; text-align: center; vertical-align: middle; }
+    .h-hospital { background-color: #004d40; color: #ffffff; font-weight: bold; font-size: 13pt; text-align: center; }
+    .h-area { background-color: #00695c; color: #ffffff; font-weight: bold; font-size: 11pt; text-align: center; }
+    .h-meta { background-color: #e0f2f1; color: #004d40; font-weight: bold; font-size: 10pt; text-align: center; }
+    .h-dias { background-color: #cfd8dc; color: #263238; font-weight: bold; font-size: 9pt; }
+    .row-grupo { background-color: #80cbc4; color: #004d40; font-weight: bold; font-size: 10pt; text-align: left; padding-left: 10px; }
+    .col-label { text-align: left; font-weight: 600; background-color: #f8fafc; font-size: 9pt; white-space: nowrap; }
+    .cell-val { mso-number-format:"0"; font-size: 9pt; }
+    .cell-val-zero { color: #94a3b8; mso-number-format:"0"; font-size: 9pt; }
+    .cell-total { background-color: #e0f2f1; font-weight: bold; color: #004d40; mso-number-format:"0"; font-size: 9.5pt; }
+    .row-total { background-color: #b2dfdb; font-weight: bold; }
+    @media print {
+      @page { size: landscape; margin: 8mm; }
+      body { margin: 0; }
+      .h-hospital { background-color: #004d40 !important; -webkit-print-color-adjust: exact; }
+      .h-area { background-color: #00695c !important; -webkit-print-color-adjust: exact; }
+      .h-meta { background-color: #e0f2f1 !important; -webkit-print-color-adjust: exact; }
+      .row-grupo { background-color: #80cbc4 !important; -webkit-print-color-adjust: exact; }
+      .cell-total { background-color: #e0f2f1 !important; -webkit-print-color-adjust: exact; }
+      .row-total { background-color: #b2dfdb !important; -webkit-print-color-adjust: exact; }
+    }
+  </style>
+</head>
+<body>
+  <table>
+    <thead>
+      <tr>
+        <th colspan="${totalCols}" class="h-hospital">HOSPITAL II "SAN JOSÉ" TOVAR</th>
+      </tr>
+      <tr>
+        <th colspan="${totalCols}" class="h-area">FORMATO ESTADÍSTICO MENSUAL DE BIOANÁLISIS — ÁREA: ${DomHelpers.esc(area.label.toUpperCase())}</th>
+      </tr>
+      <tr>
+        <th colspan="${totalCols}" class="h-meta">HOJA: ${DomHelpers.esc(hoja.label.toUpperCase())} &nbsp;|&nbsp; MES: ${mesLabel.toUpperCase()} ${ano} &nbsp;|&nbsp; TURNO: ${DomHelpers.esc(turnoLabel.toUpperCase())}</th>
+      </tr>
+      <tr class="h-dias">
+        <th style="min-width: 220px; text-align: left;">CONCEPTO / SERVICIO / EXAMEN</th>
+        ${dias.map(d => `<th style="width: 28px;">${String(d).padStart(2, '0')}</th>`).join('')}
+        <th style="width: 50px; background-color: #b2dfdb;">TOTAL</th>
+      </tr>
+    </thead>
+    <tbody>`;
+
+    hoja.grupos.forEach(grupo => {
+      html += `
+      <tr>
+        <td colspan="${totalCols}" class="row-grupo">--- ${DomHelpers.esc(grupo.titulo.toUpperCase())} ---</td>
+      </tr>`;
+
+      grupo.filas.forEach(fila => {
+        const filaData = datos[fila.id] || {};
+        const valores  = dias.map(d => filaData[d] || 0);
+        const total    = valores.reduce((s, v) => s + v, 0);
+        const isTotalRow = fila.esTotal;
+        const rowClass   = isTotalRow ? 'class="row-total"' : '';
+
+        html += `<tr ${rowClass}>
+          <td class="col-label">${DomHelpers.esc(fila.label)}</td>`;
+
+        valores.forEach(val => {
+          const cellClass = val > 0 ? 'cell-val' : 'cell-val-zero';
+          html += `<td class="${cellClass}">${val}</td>`;
+        });
+
+        html += `<td class="cell-total">${total}</td>
+        </tr>`;
+      });
+    });
+
+    html += `
+    </tbody>
+  </table>
+  <br>
+  <table style="border: none; margin-top: 20px;">
+    <tr style="border: none;">
+      <td style="border: none; text-align: left; font-weight: bold;" colspan="15">
+        Lic. Eliana Morales — Bioanalista
+      </td>
+      <td style="border: none; text-align: right; font-weight: bold;" colspan="${totalCols - 15}">
+        Firma y Sello del Hospital San José
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+
+    return html;
+  }
+
+  /**
+   * Descarga la planilla estilizada en formato Excel (.xls).
+   */
+  function descargarExcelEstilizado(nombre, htmlContent) {
+    const blob = new Blob(['\uFEFF' + htmlContent], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+    const url  = URL.createObjectURL(blob);
+    const a    = Object.assign(document.createElement('a'), {
+      href: url,
+      download: `${nombre}.xls`,
+      style: 'display:none'
+    });
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  /**
+   * Abre la vista previa e impresión de la planilla formateada.
+   */
+  function imprimirFormatoEstilizado(area, hoja, turnoLabel, mes, ano, dias, datos) {
+    const htmlContent = generarFormatoExcelHTML(area, hoja, turnoLabel, mes, ano, dias, datos);
+    const win = window.open('', '_blank');
+    if (!win) {
+      DomHelpers.mostrarToast('Por favor permita la apertura de ventanas emergentes para imprimir.', 'error');
+      return;
+    }
+    win.document.write(htmlContent);
+    win.document.close();
+    win.focus();
+    setTimeout(() => {
+      win.print();
+    }, 400);
+  }
+
+  /**
    * Genera el cuerpo del correo de resumen diario.
    * @param {string}   fecha
    * @param {object[]} rows
@@ -128,7 +280,7 @@ const CsvExport = (() => {
       `TOTAL EXÁMENES : ${totalCant}\n` +
       `VALOR TOTAL    : ${totalVal.toFixed(2)}\n` +
       `══════════════════════════════════\n\n` +
-      `(Recuerde adjuntar el archivo .csv descargado.)\n\n` +
+      `(Recuerde adjuntar el archivo descargado.)\n\n` +
       `Atentamente,\nLic. Eliana Morales`;
 
     return `mailto:?subject=${encodeURIComponent(asunto)}&body=${encodeURIComponent(cuerpo)}`;
@@ -140,6 +292,9 @@ const CsvExport = (() => {
     generarHistorialCSV,
     generarResumenDiarioCSV,
     generarFormatoCSV,
+    generarFormatoExcelHTML,
+    descargarExcelEstilizado,
+    imprimirFormatoEstilizado,
     generarMailtoResumen
   };
 

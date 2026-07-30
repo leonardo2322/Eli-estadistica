@@ -169,6 +169,22 @@ class FormatosView {
       if (handlers.onExportar) handlers.onExportar();
     });
 
+    // Exportar Excel (.xlsx Estilizado)
+    const $btnExportarExcel = document.getElementById('fmt-btn-exportar-excel');
+    if ($btnExportarExcel) {
+      $btnExportarExcel.addEventListener('click', () => {
+        if (handlers.onExportarExcel) handlers.onExportarExcel();
+      });
+    }
+
+    // Imprimir Planilla
+    const $btnImprimir = document.getElementById('fmt-btn-imprimir');
+    if ($btnImprimir) {
+      $btnImprimir.addEventListener('click', () => {
+        if (handlers.onImprimir) handlers.onImprimir();
+      });
+    }
+
     // Guardar en BD
     const $btnGuardarDB = document.getElementById('fmt-btn-guardar-db');
     if ($btnGuardarDB) {

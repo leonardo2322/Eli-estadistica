@@ -478,31 +478,32 @@ function getFilaParaServicio(nombreServicio, areaId) {
   const filas = primerGrupo.filas.filter(f => !f.esTotal);
 
   const key = inferirServicioKey(nombreServicio);
+  const normLabel = str => (str || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
   if (key === 'emerg_pediatrica') {
-    return filas.find(f => /pediatr/i.test(f.label))?.id ?? filas[0]?.id ?? null;
+    return filas.find(f => f.id.includes('emerg_pediatrica') || /pediatr/i.test(normLabel(f.label)))?.id ?? filas[0]?.id ?? null;
   }
   if (key === 'prenatal') {
-    return filas.find(f => /prenatal/i.test(f.label))?.id ?? filas.find(f => /externa/i.test(f.label))?.id ?? filas[0]?.id ?? null;
+    return filas.find(f => f.id.includes('prenatal') || /prenatal/i.test(normLabel(f.label)))?.id
+        ?? filas.find(f => /externa/i.test(normLabel(f.label)))?.id
+        ?? filas[0]?.id ?? null;
   }
   if (key === 'cons_especial') {
-    return filas.find(f => /especial/i.test(f.label))?.id ?? filas[0]?.id ?? null;
+    return filas.find(f => f.id.includes('cons_especial') || /especial/i.test(normLabel(f.label)))?.id ?? filas[0]?.id ?? null;
   }
   if (key === 'cons_externa') {
-    return filas.find(f => /externa/i.test(f.label))?.id ?? filas[0]?.id ?? null;
+    return filas.find(f => f.id.includes('cons_externa') || /externa/i.test(normLabel(f.label)))?.id ?? filas[0]?.id ?? null;
   }
   if (key === 'hospitalizacion') {
-    return filas.find(f => /hospitaliz/i.test(f.label))?.id ?? filas[0]?.id ?? null;
+    return filas.find(f => f.id.includes('hospitalizacion') || /hospitaliz/i.test(normLabel(f.label)))?.id ?? filas[0]?.id ?? null;
   }
   if (key === 'emerg_adulto') {
-    return filas.find(f => /emergencia\s*adulto/i.test(f.label))?.id
-        ?? filas.find(f => /emergencia/i.test(f.label))?.id
-        ?? filas[0]?.id ?? null;
+    return filas.find(f => f.id.includes('emerg_adulto') || /emerg.*adulto|emergencia/i.test(normLabel(f.label)))?.id ?? filas[0]?.id ?? null;
   }
 
   // Fallback para servicios específicos (ej. Pediatría, Medicina Interna, etc.)
-  const n = (nombreServicio || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-  const coincidencia = filas.find(f => f.label.toLowerCase().includes(n));
+  const n = normLabel(nombreServicio);
+  const coincidencia = filas.find(f => normLabel(f.label).includes(n) || (key !== 'srv_custom' && f.id.includes(key)));
   if (coincidencia) return coincidencia.id;
 
   return filas[0]?.id ?? null;

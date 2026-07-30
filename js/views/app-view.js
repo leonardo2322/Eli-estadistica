@@ -778,33 +778,7 @@ class AppView {
     this.$frmPac.addEventListener('submit', e => {
       e.preventDefault();
 
-      // Si el selector actual tiene un examen y servicio válidos, incluirlo automáticamente en la lista para no omitir el último ítem
-      if (this.$pacFecha.value && this.$selServicio.value && this.$selExamen.value) {
-        const srvObj = (this._servicios || []).find(s => s.id === this.$selServicio.value);
-        const exmObj = (this._examenes || []).find(e => e.id === this.$selExamen.value);
-        const servNombre = srvObj ? srvObj.nombre : 'Servicio';
-        const examNombre = exmObj ? exmObj.nombre : 'Examen';
-        const cantidad = parseInt(this.$pacCantidad.value) || 1;
-        const total = parseFloat(this.$pacTotal.value) || 0;
-        const areaVal = this.$selArea ? this.$selArea.value : '';
-        const filtroSeccion = (this.$selFiltroSeccionPac && (areaVal === 'hematologia' || areaVal === 'uroanalisis'))
-          ? this.$selFiltroSeccionPac.value
-          : 'todos';
-
-        this.colaRegistros.push({
-          id: this.$pacId.value || null,
-          fecha: this.$pacFecha.value,
-          servicioId: this.$selServicio.value,
-          examenId: this.$selExamen.value,
-          cantidad,
-          total,
-          filtroSeccion,
-          servNombre,
-          examNombre
-        });
-      }
-
-      // Si hay elementos en la cola visual, guardar toda la lista
+      // 1. Si hay elementos en la lista previa agregados explícitamente, guardar solo esos elementos
       if (this.colaRegistros && this.colaRegistros.length > 0) {
         const cola = [...this.colaRegistros];
         this.colaRegistros = [];
@@ -814,10 +788,10 @@ class AppView {
         return;
       }
 
-      // Si no hay cola, verificar si el formulario individual es válido
+      // 2. Si no hay lista previa, validar el formulario individual y guardar únicamente la selección actual
       if (!this.$frmPac.checkValidity()) { this.$frmPac.reportValidity(); return; }
       if (!this.$selServicio.value || !this.$selExamen.value) {
-        DomHelpers.mostrarToast('Agregue exámenes a la lista previa antes de guardar.', 'info');
+        DomHelpers.mostrarToast('Por favor seleccione Servicio y Examen antes de guardar.', 'info');
         return;
       }
 
