@@ -254,53 +254,6 @@ const HOSPITAL_AREAS = [
             ]
           }
         ]
-      },
-      {
-        id: 'coproanalisis_h2',
-        label: 'Hospitalización y Consulta',
-        grupos: [
-          {
-            titulo: 'PACIENTES HOSPITALIZADOS',
-            filas: [
-              { id: 'cop2_emerg_adulto',    label: 'EMERGENCIA ADULTO',     esTotal: false },
-              { id: 'cop2_emerg_pediatrica',label: 'EMERGENCIA PEDIÁTRICA', esTotal: false },
-              { id: 'cop2_hospitalizacion', label: 'HOSPITALIZACIÓN',       esTotal: false },
-              { id: 'cop2_cons_externa',    label: 'CONSULTA EXTERNA',      esTotal: false },
-              { id: 'cop2_cons_especial',   label: 'CONSULTA ESPECIAL',     esTotal: false },
-              { id: 'cop2_pediatria',       label: '  PEDIATRÍA',           esTotal: false },
-              { id: 'cop2_med_interna',     label: '  MEDICINA INTERNA',    esTotal: false },
-              { id: 'cop2_cirugia',         label: '  CIRUGÍA',             esTotal: false },
-              { id: 'cop2_obstetricia',     label: '  OBSTETRICIA',         esTotal: false },
-              { id: 'cop2_observacion',     label: '  OBSERVACIÓN',         esTotal: false },
-              { id: 'cop2_total_hosp',      label: 'TOTAL',                 esTotal: true  }
-            ]
-          },
-          {
-            titulo: 'CONSULTA ESPECIAL',
-            filas: [
-              { id: 'cop2_ce_pediatria',    label: 'CONS. ESPEC. PEDIATRÍA',  esTotal: false },
-              { id: 'cop2_ce_cirugia',      label: '  CIRUGÍA',               esTotal: false },
-              { id: 'cop2_ce_medicina',     label: '  MEDICINA',              esTotal: false },
-              { id: 'cop2_ce_ginecologia',  label: '  GINECOLOGÍA',           esTotal: false },
-              { id: 'cop2_ce_cir_ped',      label: '  CIRUGÍA PEDIÁTRICA',    esTotal: false },
-              { id: 'cop2_ce_neumonologia', label: '  NEUMUNOLOGÍA',          esTotal: false },
-              { id: 'cop2_ce_nutricion',    label: '  NUTRICIÓN',             esTotal: false },
-              { id: 'cop2_ce_traumatologia',label: '  TRAUMATOLOGÍA',         esTotal: false },
-              { id: 'cop2_ce_epidemiologia',label: '  EPIDEMIOLOGÍA',         esTotal: false },
-              { id: 'cop2_ce_familiar',     label: '  FAMILIAR',              esTotal: false },
-              { id: 'cop2_ce_radiologia',   label: '  RADIOLOGÍA',            esTotal: false },
-              { id: 'cop2_ce_psiquiatria',  label: '  PSIQUIATRÍA',           esTotal: false },
-              { id: 'cop2_total_ce',        label: 'TOTAL',                   esTotal: true  }
-            ]
-          },
-          {
-            titulo: 'TOTALES GENERALES',
-            filas: [
-              { id: 'cop2_total_cons_ext',  label: 'TOTAL CONSULTA EXTERNA',  esTotal: true  },
-              { id: 'cop2_total_general',   label: 'TOTAL GENERAL',           esTotal: true  }
-            ]
-          }
-        ]
       }
     ]
   },
@@ -748,6 +701,15 @@ function getSerologiaSuffix(nombreServicio) {
 
 /**
  * Obtiene el destino en los Formatos Estadísticos a partir de la key del examen y el nombre del servicio.
+ *
+ * LÓGICA DE filtroSeccion:
+ *   - 'todos'           → registra en el grupo principal (HEMATOLOGÍA COMPLETA / etc.)
+ *                         Y busca en todos los sub-grupos que coincidan con el servicio.
+ *   - 'hospitalizados'  → SOLO registra en filas del sub-grupo "PACIENTES HOSPITALIZADOS".
+ *                         No toca el grupo principal.
+ *   - 'consulta_especial' → SOLO registra en filas del sub-grupo "CONSULTA ESPECIAL".
+ *                         No toca el grupo principal.
+ *
  * @param {string} examenKey
  * @param {string} servicioNombre
  * @param {string} [filtroSeccion='todos'] – 'todos' | 'hospitalizados' | 'consulta_especial'
@@ -766,15 +728,23 @@ function obtenerDestinoFormato(examenKey, servicioNombre, filtroSeccion = 'todos
   let filasServicioIds = [];
 
   if (config.serologiaGroup) {
+    // Serología: estructura especial por sufijo de servicio
     const sfx = getSerologiaSuffix(servicioNombre);
     filaServicioId = `${config.serologiaGroup}_${sfx}`;
     filaExamenId = filaServicioId;
     filasServicioIds = [filaServicioId];
   } else {
-    filaServicioId = getFilaParaServicio(servicioNombre, areaId);
-    if (filaServicioId) filasServicioIds.push(filaServicioId);
+    // ── GRUPO PRINCIPAL (gIdx === 0) ─────────────────────────────────────
+    // Solo se usa cuando filtroSeccion === 'todos'.
+    // Con filtro específico (hospitalizados / consulta_especial) se OMITE
+    // este grupo para evitar registrar en HEMATOLOGÍA COMPLETA / UROANÁLISIS
+    // a la vez que en el sub-grupo seleccionado.
+    if (filtroSeccion === 'todos') {
+      filaServicioId = getFilaParaServicio(servicioNombre, areaId);
+      if (filaServicioId) filasServicioIds.push(filaServicioId);
+    }
 
-    // Buscar también en sub-grupos (como PACIENTES HOSPITALIZADOS o CONSULTA ESPECIAL)
+    // ── SUB-GRUPOS (gIdx > 0): PACIENTES HOSPITALIZADOS / CONSULTA ESPECIAL ──
     const area = HOSPITAL_AREAS.find(a => a.id === areaId);
     if (area) {
       const sKey = inferirServicioKey(servicioNombre);
@@ -782,10 +752,14 @@ function obtenerDestinoFormato(examenKey, servicioNombre, filtroSeccion = 'todos
 
       area.hojas.forEach(hoja => {
         hoja.grupos.forEach((grupo, gIdx) => {
-          if (gIdx > 0) { // Sub-grupos de detalle
+          if (gIdx > 0) { // Solo sub-grupos (índice > 0)
             const gTitulo = (grupo.titulo || '').toUpperCase();
+
+            // Con filtro 'hospitalizados': solo el sub-grupo PACIENTES HOSPITALIZADOS
             if (filtroSeccion === 'hospitalizados' && !gTitulo.includes('HOSPITALIZADOS')) return;
+            // Con filtro 'consulta_especial': solo el sub-grupo CONSULTA ESPECIAL
             if (filtroSeccion === 'consulta_especial' && !gTitulo.includes('CONSULTA ESPECIAL')) return;
+            // Con 'todos': incluir todos los sub-grupos que coincidan con el nombre del servicio
 
             grupo.filas.forEach(f => {
               if (!f.esTotal) {
@@ -829,3 +803,4 @@ function getHojaNombre(areaId, hojaId) {
   const hoja = area.hojas.find(h => h.id === hojaId);
   return hoja ? hoja.label : '';
 }
+

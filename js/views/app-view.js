@@ -47,21 +47,20 @@ function esServicioDeArea(nombreServicio, areaId) {
     return SERVICIOS_SEROLOGIA.some(s => norm.includes(s));
   }
 
-  // Para Uroanálisis: los 5 principales + Prenatal
-  if (areaId === 'uroanalisis') {
-    const SERVICIOS_UROANALISIS = [
+  // Para Coproanálisis: ÚNICAMENTE los 5 servicios oficiales de la planilla de Coproanálisis (H1)
+  if (areaId === 'coproanalisis') {
+    const SERVICIOS_COPROANALISIS = [
       'emergencia adulto',
       'emergencia pediatrica',
       'hospitalizacion',
       'consulta externa',
-      'consulta especial',
-      'prenatal'
+      'consulta especial'
     ];
-    return SERVICIOS_UROANALISIS.some(s => norm.includes(s));
+    return SERVICIOS_COPROANALISIS.some(s => norm.includes(s));
   }
 
-  // Para Coproanálisis y Hematología: omitir Prenatal que es exclusivo de Uroanálisis
-  if (norm.includes('prenatal')) {
+  // El servicio 'prenatal' es exclusivo del área de Uroanálisis
+  if (areaId !== 'uroanalisis' && norm.includes('prenatal')) {
     return false;
   }
 
@@ -778,6 +777,32 @@ class AppView {
   bindPacForm(handler) {
     this.$frmPac.addEventListener('submit', e => {
       e.preventDefault();
+
+      // Si el selector actual tiene un examen y servicio válidos, incluirlo automáticamente en la lista para no omitir el último ítem
+      if (this.$pacFecha.value && this.$selServicio.value && this.$selExamen.value) {
+        const srvObj = (this._servicios || []).find(s => s.id === this.$selServicio.value);
+        const exmObj = (this._examenes || []).find(e => e.id === this.$selExamen.value);
+        const servNombre = srvObj ? srvObj.nombre : 'Servicio';
+        const examNombre = exmObj ? exmObj.nombre : 'Examen';
+        const cantidad = parseInt(this.$pacCantidad.value) || 1;
+        const total = parseFloat(this.$pacTotal.value) || 0;
+        const areaVal = this.$selArea ? this.$selArea.value : '';
+        const filtroSeccion = (this.$selFiltroSeccionPac && (areaVal === 'hematologia' || areaVal === 'uroanalisis'))
+          ? this.$selFiltroSeccionPac.value
+          : 'todos';
+
+        this.colaRegistros.push({
+          id: this.$pacId.value || null,
+          fecha: this.$pacFecha.value,
+          servicioId: this.$selServicio.value,
+          examenId: this.$selExamen.value,
+          cantidad,
+          total,
+          filtroSeccion,
+          servNombre,
+          examNombre
+        });
+      }
 
       // Si hay elementos en la cola visual, guardar toda la lista
       if (this.colaRegistros && this.colaRegistros.length > 0) {

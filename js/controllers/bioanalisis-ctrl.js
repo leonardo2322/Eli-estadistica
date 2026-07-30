@@ -165,7 +165,8 @@ class BioanalisisController {
           servicioId: item.servicioId,
           examenId: item.examenId,
           cantidad: item.cantidad,
-          total: item.total
+          total: item.total,
+          filtroSeccion: item.filtroSeccion || 'todos'
         };
         this.repo.guardarPaciente(itemLimpio);
         itemsGuardados.push(itemLimpio);

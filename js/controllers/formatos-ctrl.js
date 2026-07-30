@@ -395,7 +395,7 @@ class FormatosController {
 
         // B. Sumar a las filas de examen el resultado de la multiplicación (sumando al valor actual de la celda)
         if (filaExamenId) {
-          if (!filasServicioIds || !filasServicioIds.includes(filaExamenId) || areaId === 'serologia') {
+          if (!filasServicioIds || !filasServicioIds.includes(filaExamenId)) {
             const valActual = this.repo.obtenerCelda(areaId, hojaId, turnoId, ano, mes, filaExamenId, dia);
             const valNuevo = Math.max(0, valActual + valorExamen);
             this.repo.actualizarCelda(areaId, hojaId, turnoId, ano, mes, filaExamenId, dia, valNuevo);
