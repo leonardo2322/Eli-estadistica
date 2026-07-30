@@ -58,6 +58,32 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (typeof GeminiVisionService !== 'undefined') {
       GeminiVisionService.cargarApiKeyDesdeFirestore(firebaseRepo);
+
+      // Verificar (máx 1 vez/día, con caché) si el modelo configurado sigue activo.
+      // Si fue retirado, muestra una advertencia visible en la UI usando el sistema
+      // de notificaciones existente (DomHelpers.mostrarToast).
+      GeminiVisionService.verificarModeloActual().then(resultado => {
+        if (!resultado) return; // sin key o sin red → ignorar silenciosamente
+        if (!resultado.disponible) {
+          const flashDisponibles = resultado.modelos
+            .filter(n => n.includes('flash'))
+            .join(', ') || 'Ver consola para lista completa';
+          // Retardo breve para que el toast aparezca después del render inicial
+          setTimeout(() => {
+            DomHelpers.mostrarToast(
+              `⚠️ Modelo Gemini "${resultado.modeloActual}" retirado. ` +
+              `Actualice gemini-vision-service.js. Modelos flash activos: ${flashDisponibles}`,
+              'error'
+            );
+          }, 1500);
+          console.warn(
+            `[GeminiVisionService] MODELO RETIRADO: "${resultado.modeloActual}" no está disponible.\n` +
+            `Modelos disponibles:\n  · ${resultado.modelos.join('\n  · ')}`
+          );
+        } else {
+          console.info(`[GeminiVisionService] ✅ Modelo "${resultado.modeloActual}" verificado y disponible.`);
+        }
+      });
     }
     firebaseRepo.sincronizarLocalStorageAFirestore(bioRepo).then(res => {
       if (res.ok) {

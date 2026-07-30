@@ -2,7 +2,7 @@
  * =========================================================================
  * js/utils/gemini-vision-service.js
  * -------------------------------------------------------------------------
- * Servicio de Inteligencia Artificial Multimodal (Google Gemini 1.5 Flash)
+ * Servicio de Inteligencia Artificial Multimodal (Google Gemini Flash)
  * para la lectura de cuadernos manuscritos de laboratorio con 98%+ exactitud.
  * =========================================================================
  */
@@ -116,15 +116,14 @@ REGLAS DE SERVICIO:
 Responde ÚNICAMENTE con el objeto JSON válido sin texto explicativo.
 `;
 
-    // Nombre oficial del modelo estándar de visión/OCR
-    // Se elimina cualquier prefijo "models/" para evitar duplicar el segmento en la URL
-    // (e.g. "models/gemini-1.5-flash" → "gemini-1.5-flash")
-    const modeloNombre = 'gemini-1.5-flash'.replace(/^models\//, '');
+    // Alias estable del modelo flash activo (gemini-2.5-flash, vigente hasta oct 2026).
+    // Se elimina cualquier prefijo "models/" para evitar duplicar el segmento en la URL.
+    const modeloNombre = 'gemini-2.5-flash'.replace(/^models\//, '');
 
-    // Lista de endpoints a probar (v1 estable primero, v1beta como respaldo) sin duplicar "models/"
+    // Lista de endpoints a probar (v1beta primero — necesario para modelos 2.x; v1 como respaldo)
     const endpointsToTry = [
-      `https://generativelanguage.googleapis.com/v1/models/${modeloNombre}:generateContent?key=${encodeURIComponent(key)}`,
-      `https://generativelanguage.googleapis.com/v1beta/models/${modeloNombre}:generateContent?key=${encodeURIComponent(key)}`
+      `https://generativelanguage.googleapis.com/v1beta/models/${modeloNombre}:generateContent?key=${encodeURIComponent(key)}`,
+      `https://generativelanguage.googleapis.com/v1/models/${modeloNombre}:generateContent?key=${encodeURIComponent(key)}`
     ];
 
     for (let i = 0; i < archivos.length; i++) {
@@ -136,7 +135,7 @@ Responde ÚNICAMENTE con el objeto JSON válido sin texto explicativo.
         await new Promise(resolve => setTimeout(resolve, 4000));
       }
 
-      if (onProgress) onProgress(i + 1, archivos.length, `Enviando imagen ${i + 1} a Google Gemini 1.5 Flash...`);
+      if (onProgress) onProgress(i + 1, archivos.length, `Enviando imagen ${i + 1} a Google Gemini Flash...`);
 
       const base64Data = await this.fileToBase64(file);
 
@@ -190,7 +189,7 @@ Responde ÚNICAMENTE con el objeto JSON válido sin texto explicativo.
         if (ultimoError && ultimoError.includes('429')) {
           throw new Error(`Límite de cuota excedido (429): ${ultimoError}. Espere un momento e intente de nuevo.`);
         }
-        throw new Error(`Error en API Gemini: ${ultimoError || 'No se pudo conectar con el modelo gemini-1.5-flash'}`);
+        throw new Error(`Error en API Gemini: ${ultimoError || 'No se pudo conectar con el modelo gemini-2.5-flash'}`);
       }
 
       const resData = await response.json();
@@ -252,6 +251,91 @@ Responde ÚNICAMENTE con el objeto JSON válido sin texto explicativo.
     }
 
     return atencionesTotales;
+  }
+
+  /**
+   * Lista los modelos Gemini disponibles para la API key y los imprime en consola.
+   * Útil para detectar retiradas de modelos antes de que fallen en producción.
+   * Llamar al inicio de la app (p.ej. en app.js) si hay una key guardada.
+   * No lanza excepciones — falla silenciosamente para no bloquear el arranque.
+   * @param {string} [apiKey]
+   */
+  static async listarModelosDisponibles(apiKey = '') {
+    const key = apiKey || this.obtenerApiKey();
+    if (!key) return;
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(key)}`;
+      const res = await fetch(url);
+      if (!res.ok) {
+        console.warn(`[GeminiVisionService] No se pudo listar modelos (${res.status}): ${res.statusText}`);
+        return;
+      }
+      const data = await res.json();
+      const modelosFlash = (data.models || [])
+        .map(m => m.name)
+        .filter(n => n.includes('flash'));
+      const todos = (data.models || []).map(m => m.name);
+      console.info(
+        `[GeminiVisionService] Modelos flash disponibles:\n  · ${modelosFlash.join('\n  · ')}`,
+        '\n[GeminiVisionService] Total modelos:', todos.length
+      );
+    } catch (e) {
+      console.warn('[GeminiVisionService] Error al consultar modelos disponibles:', e.message);
+    }
+  }
+
+  /**
+   * Verifica si el modelo actualmente configurado sigue disponible en la API.
+   * Usa caché en localStorage (24 h) para no gastar cuota en cada carga.
+   *
+   * @param {string} [apiKey]
+   * @returns {Promise<{disponible: boolean, modelos: string[], modeloActual: string}|null>}
+   *   Retorna el resultado de la verificación, o null si no pudo verificar
+   *   (sin key, sin red, o error de API).
+   */
+  static async verificarModeloActual(apiKey = '') {
+    const CACHE_KEY   = 'gemini_model_check';
+    const CACHE_HORAS = 24;
+
+    // ── 1. Devolver caché si aún es válida (< 24 h) ──────────────────────
+    try {
+      const cacheado = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null');
+      if (cacheado && (Date.now() - cacheado.timestamp) < CACHE_HORAS * 3600 * 1000) {
+        console.info('[GeminiVisionService] verificarModeloActual: usando caché (< 24 h).');
+        return cacheado.resultado;
+      }
+    } catch (_) { /* caché corrupta → ignorar y re-verificar */ }
+
+    // ── 2. Sin key no podemos verificar ──────────────────────────────────
+    const key = apiKey || this.obtenerApiKey();
+    if (!key) return null;
+
+    // ── 3. Consultar la API ───────────────────────────────────────────────
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(key)}`;
+      const res = await fetch(url);
+      if (!res.ok) {
+        console.warn(`[GeminiVisionService] verificarModeloActual: error HTTP ${res.status}.`);
+        return null;
+      }
+
+      const data     = await res.json();
+      // Normalizar: quitar el prefijo "models/" que devuelve la API
+      const nombres  = (data.models || []).map(m => m.name.replace(/^models\//, ''));
+      // ⚠ Este literal DEBE coincidir con modeloNombre en analizarLoteCuadernos()
+      const modeloActual = 'gemini-2.5-flash';
+      const disponible   = nombres.includes(modeloActual);
+
+      const resultado = { disponible, modelos: nombres, modeloActual };
+
+      // ── 4. Guardar en caché ───────────────────────────────────────────
+      localStorage.setItem(CACHE_KEY, JSON.stringify({ timestamp: Date.now(), resultado }));
+
+      return resultado;
+    } catch (e) {
+      console.warn('[GeminiVisionService] verificarModeloActual: no se pudo verificar:', e.message);
+      return null;
+    }
   }
 }
 
