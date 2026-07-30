@@ -256,12 +256,80 @@ Responde ÚNICAMENTE con el objeto JSON válido sin texto explicativo.
       }
 
       if (!response) {
-        // 429 sin "limit: 0" → rate limit temporal real; pedir al usuario que espere
-        if (ultimoError && ultimoError.includes('429') && !/limit[:\s]+0\b/.test(ultimoError)) {
+        const esRateLimitReal = ultimoError && ultimoError.includes('429')
+          && !/limit[:\s]+0\b/.test(ultimoError);
+
+        if (esRateLimitReal) {
+          // 429 sin "limit: 0" → rate limit temporal real; pedir al usuario que espere
           throw new Error(`Límite de cuota excedido (429): ${ultimoError}. Espere un momento e intente de nuevo.`);
         }
-        const nombresIntentados = candidatosOrdenados.join(', ');
-        throw new Error(`Error en API Gemini: ${ultimoError || 'Sin respuesta'} (modelos intentados: ${nombresIntentados})`);
+
+        // Todos los modelos bloqueados (429 + limit:0). Intentar extraer el tiempo
+        // de espera sugerido por la API ("Please retry in Xs") y reintentar una vez.
+        const segundosEspera = this._extraerSegundosRetry(ultimoError || '');
+        if (segundosEspera !== null && segundosEspera > 0 && segundosEspera <= 120) {
+          console.warn(`[GeminiVisionService] Todos los modelos bloqueados. Esperando ${segundosEspera}s antes de reintentar...`);
+          await this._esperarConContador(segundosEspera, i + 1, archivos.length, onProgress);
+
+          // ── Reintento único tras la espera ──────────────────────────────
+          let responseRetry   = null;
+          let ultimoErrorRetry = null;
+          let modeloUsadoRetry = null;
+
+          for (const candidato of candidatosOrdenados) {
+            const modelo = candidato.replace(/^models\//, '');
+            const endpoints = [
+              `https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent?key=${encodeURIComponent(key)}`,
+              `https://generativelanguage.googleapis.com/v1/models/${modelo}:generateContent?key=${encodeURIComponent(key)}`
+            ];
+
+            if (onProgress) onProgress(i + 1, archivos.length, `Reintentando imagen ${i + 1} con modelo ${modelo}...`);
+
+            for (const endpointUrl of endpoints) {
+              try {
+                const r = await fetch(endpointUrl, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
+                  body: JSON.stringify(requestBody)
+                });
+                if (r.ok) {
+                  responseRetry   = r;
+                  modeloUsadoRetry = modelo;
+                  break;
+                }
+                const ej = await r.json().catch(() => ({}));
+                ultimoErrorRetry = `(${r.status}) ${ej.error?.message || r.statusText}`;
+                if (r.status !== 404) break; // no seguir con otros endpoints
+              } catch (eNet) {
+                ultimoErrorRetry = eNet.message;
+                break;
+              }
+            }
+            if (responseRetry) {
+              localStorage.setItem(this.STORAGE_MODELO_ACTIVO, modeloUsadoRetry);
+              console.info(`[GeminiVisionService] ✅ Reintento exitoso con modelo: ${modeloUsadoRetry}`);
+              break;
+            }
+            // En el reintento solo avanzamos en 404; cualquier otro error aborta
+            if (ultimoErrorRetry && !ultimoErrorRetry.startsWith('(404)')) break;
+          }
+
+          if (responseRetry) {
+            // Reemplazar response por el resultado del reintento y continuar el flujo normal
+            response = responseRetry;
+          } else {
+            const nombresIntentados = candidatosOrdenados.join(', ');
+            throw new Error(
+              `Error en API Gemini tras espera de ${segundosEspera}s: ` +
+              `${ultimoErrorRetry || ultimoError || 'Sin respuesta'} ` +
+              `(modelos intentados: ${nombresIntentados})`
+            );
+          }
+        } else {
+          // No hay tiempo de retry sugerido → lanzar error inmediatamente
+          const nombresIntentados = candidatosOrdenados.join(', ');
+          throw new Error(`Error en API Gemini: ${ultimoError || 'Sin respuesta'} (modelos intentados: ${nombresIntentados})`);
+        }
       }
 
       const resData = await response.json();
@@ -323,6 +391,42 @@ Responde ÚNICAMENTE con el objeto JSON válido sin texto explicativo.
     }
 
     return atencionesTotales;
+  }
+
+  /**
+   * Extrae los segundos de espera sugeridos por la API de Gemini del texto de error.
+   * Busca el patrón: "Please retry in 43.69s" o "retry in 43s".
+   * @param {string} msg
+   * @returns {number|null} Segundos (redondeados hacia arriba) o null si no encontró.
+   */
+  static _extraerSegundosRetry(msg) {
+    const m = msg.match(/retry in (\d+(?:\.\d+)?)s/i);
+    if (!m) return null;
+    return Math.ceil(parseFloat(m[1]));
+  }
+
+  /**
+   * Espera el número de segundos indicado actualizando la barra de progreso
+   * con una cuenta regresiva visible para el usuario.
+   * @param {number}   segundos   Tiempo total a esperar
+   * @param {number}   imgIdx     Índice de imagen actual (para el mensaje de progreso)
+   * @param {number}   imgTotal   Total de imágenes del lote
+   * @param {Function|null} onProgress  Callback de progreso (puede ser null)
+   */
+  static async _esperarConContador(segundos, imgIdx, imgTotal, onProgress) {
+    for (let restante = segundos; restante > 0; restante--) {
+      if (onProgress) {
+        onProgress(
+          imgIdx,
+          imgTotal,
+          `⏳ Límite de cuota alcanzado. Reintentando automáticamente en ${restante}s...`
+        );
+      }
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+    if (onProgress) {
+      onProgress(imgIdx, imgTotal, `▶️ Reanudando envío a Gemini...`);
+    }
   }
 
   /**
